@@ -74,9 +74,15 @@ From the project root:
 flutter run -d chrome
 ```
 
+<<<<<<< HEAD
 
+=======
+The API creates the `edumate` database and tables automatically on startup. 
+>>>>>>> 581d47f74aebc1a1a96ccc8c55629dc907e69746
 Check the database connection at `http://localhost:5000/api/health`.
 
 The Chrome app connects automatically to `http://127.0.0.1:5000`. Android emulators use `http://10.0.2.2:5000`.
 
 
+
+##In development
