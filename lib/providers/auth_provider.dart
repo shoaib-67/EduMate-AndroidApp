@@ -1,17 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../config/api_config.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/session_storage.dart';
 
 class AuthProvider extends ChangeNotifier {
   final ApiService _apiService;
   late final AuthService _authService;
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final SessionStorage _storage = const SessionStorage();
 
   User? _user;
   bool _isLoading = false;

@@ -512,14 +512,14 @@ class _StudentDashboardState extends State<StudentDashboard> {
           ),
           const SizedBox(height: 16),
           EduCard(
-            onTap: () => Navigator.of(context).pushNamed('/student/report-bug'),
+            onTap: () => Navigator.of(context).pushNamed('/student/packages'),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [
-                const Icon(Icons.bug_report_outlined, color: AppTheme.textSecondary, size: 22),
+                const Icon(Icons.workspace_premium_outlined, color: AppTheme.textSecondary, size: 22),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: Text('বাগ রিপোর্ট', style: Theme.of(context).textTheme.titleMedium),
+                  child: Text('প্যাকেজসমূহ', style: Theme.of(context).textTheme.titleMedium),
                 ),
                 const Icon(Icons.chevron_right_rounded, size: 20),
               ],
@@ -530,14 +530,14 @@ class _StudentDashboardState extends State<StudentDashboard> {
             MyBugReports(reports: student.myBugReports),
           const SizedBox(height: 16),
           EduCard(
-            onTap: () => Navigator.of(context).pushNamed('/student/packages'),
+            onTap: () => Navigator.of(context).pushNamed('/student/report-bug'),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [
-                const Icon(Icons.workspace_premium_outlined, color: AppTheme.textSecondary, size: 22),
+                const Icon(Icons.bug_report_outlined, color: AppTheme.textSecondary, size: 22),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: Text('প্যাকেজসমূহ', style: Theme.of(context).textTheme.titleMedium),
+                  child: Text('বাগ রিপোর্ট', style: Theme.of(context).textTheme.titleMedium),
                 ),
                 const Icon(Icons.chevron_right_rounded, size: 20),
               ],
@@ -645,14 +645,14 @@ class _StudentDashboardState extends State<StudentDashboard> {
             () => Navigator.of(context).pushNamed('/student/performance'),
           ),
           _profileMenuItem(
-            Icons.bug_report_outlined,
-            'বাগ রিপোর্ট',
-            () => Navigator.of(context).pushNamed('/student/report-bug'),
-          ),
-          _profileMenuItem(
             Icons.workspace_premium_outlined,
             'প্যাকেজসমূহ',
             () => Navigator.of(context).pushNamed('/student/packages'),
+          ),
+          _profileMenuItem(
+            Icons.bug_report_outlined,
+            'বাগ রিপোর্ট',
+            () => Navigator.of(context).pushNamed('/student/report-bug'),
           ),
           const SizedBox(height: 16),
           SizedBox(

@@ -43,8 +43,13 @@ class AdminService {
 
   Future<Map<String, dynamic>?> getReports() async {
     final response = await _api.get(ApiConfig.reports);
-    if (response.success) return response.data as Map<String, dynamic>?;
-    return null;
+    if (!response.success) {
+      throw Exception(response.message ?? 'Unable to load reports');
+    }
+    if (response.data is! Map) {
+      throw Exception('Invalid reports response');
+    }
+    return Map<String, dynamic>.from(response.data as Map);
   }
 
   Future<ApiResponse> updateBugReportStatus(int id, String status) async {

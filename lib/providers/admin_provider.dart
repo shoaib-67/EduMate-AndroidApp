@@ -20,6 +20,7 @@ class AdminProvider extends ChangeNotifier {
   Map<String, dynamic>? _reportsData;
   bool _isReportsLoading = false;
   bool _reportsLoaded = false;
+  String? _reportsError;
   List<dynamic> _content = [];
   bool _isContentLoading = false;
   bool _contentLoaded = false;
@@ -37,6 +38,7 @@ class AdminProvider extends ChangeNotifier {
   Map<String, dynamic>? get reportsData => _reportsData;
   bool get isReportsLoading => _isReportsLoading;
   bool get reportsLoaded => _reportsLoaded;
+  String? get reportsError => _reportsError;
   List<dynamic> get content => _content;
   bool get isContentLoading => _isContentLoading;
   bool get contentLoaded => _contentLoaded;
@@ -102,11 +104,13 @@ class AdminProvider extends ChangeNotifier {
 
   Future<void> loadReports() async {
     _isReportsLoading = true;
+    _reportsError = null;
     notifyListeners();
     try {
       _reportsData = await _service.getReports();
-    } catch (_) {
+    } catch (error) {
       _reportsData = null;
+      _reportsError = error.toString().replaceFirst('Exception: ', '');
     } finally {
       _reportsLoaded = true;
       _isReportsLoading = false;

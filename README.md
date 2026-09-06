@@ -74,12 +74,6 @@ From the project root:
 flutter run -d chrome
 ```
 
-The API creates the `edumate` database and tables automatically on startup. It also seeds these demo accounts:
-
-- Student email: `student@edumate.com`
-- Teacher email: `teacher@edumate.com`
-- Admin emails: `demo@edumate.com`, `admin@edumate.com`
-- Password: `demo123`
 
 Check the database connection at `http://localhost:5000/api/health`.
 
