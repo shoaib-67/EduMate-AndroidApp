@@ -6,21 +6,17 @@ import '../../providers/admin_provider.dart';
 import '../../models/user.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
-import '../../widgets/role_bottom_navigation.dart';
 import '../../utils/external_links.dart';
-import 'admin_courses_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
-  const AdminDashboard({super.key, this.initialTab = 0});
-
-  final int initialTab;
+  const AdminDashboard({super.key});
 
   @override
   State<AdminDashboard> createState() => _AdminDashboardState();
 }
 
 class _AdminDashboardState extends State<AdminDashboard> {
-  late int _currentIndex;
+  int _currentIndex = 0;
   late final TextEditingController _nameCtrl;
   late final TextEditingController _phoneCtrl;
   late final TextEditingController _institutionCtrl;
@@ -36,7 +32,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialTab;
     final user = context.read<AuthProvider>().user;
     _nameCtrl = TextEditingController(text: user?.name);
     _phoneCtrl = TextEditingController(text: user?.phone ?? '');
@@ -88,24 +83,42 @@ class _AdminDashboardState extends State<AdminDashboard> {
             : _currentIndex == 1
             ? _buildUsersTab(admin)
             : _currentIndex == 2
-            ? AdminCoursesScreen(
-                onBack: () => setState(() => _currentIndex = 0),
-              )
-            : _currentIndex == 3
             ? _buildReportsTab(admin)
-            : _currentIndex == 4
+            : _currentIndex == 3
             ? _buildPackagesTab(admin)
             : _buildSettingsTab(auth),
       ),
-      bottomNavigationBar: RoleBottomNavigation(
-        role: AppRole.admin,
-        selectedIndex: _currentIndex,
-        onTap: (i) {
-          if (i == 3) {
-            context.read<AdminProvider>().loadReports();
-          }
-          setState(() => _currentIndex = i);
-        },
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceColor,
+          border: Border(top: BorderSide(color: const Color(0xFFDCE5EF))),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (i) => setState(() => _currentIndex = i),
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.dashboard_rounded),
+              label: 'ড্যাশবোর্ড',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.people_rounded),
+              label: 'ব্যবহারকারী',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.analytics_rounded),
+              label: 'রিপোর্ট',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.workspace_premium_rounded),
+              label: 'প্যাকেজ',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings_rounded),
+              label: 'সেটিংস',
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -281,80 +294,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ],
               ),
             ),
-            const SizedBox(height: 10),
-            _adminQuickAction(
-              Icons.menu_book_rounded,
-              'কোর্স পরিচালনা',
-              'কোর্স তৈরি, সম্পাদনা ও ইনস্ট্রাক্টর নির্ধারণ করুন',
-              AppTheme.primaryColor,
-              2,
-            ),
-            const SizedBox(height: 10),
-            _adminQuickAction(
-              Icons.analytics_rounded,
-              'রিপোর্ট',
-              'সিস্টেম রিপোর্ট এবং বাগ রিপোর্ট দেখুন',
-              AppTheme.accentTeal,
-              3,
-            ),
-            const SizedBox(height: 10),
-            _adminQuickAction(
-              Icons.workspace_premium_rounded,
-              'প্যাকেজ',
-              'প্যাকেজ যোগ বা সম্পাদনা করুন',
-              AppTheme.accentOrange,
-              4,
-            ),
-            const SizedBox(height: 10),
-            _adminQuickAction(
-              Icons.settings_rounded,
-              'সেটিংস',
-              'প্রোফাইল এবং অ্যাকাউন্ট সেটিংস',
-              AppTheme.accentPink,
-              5,
-            ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _adminQuickAction(
-    IconData icon,
-    String title,
-    String subtitle,
-    Color color,
-    int tabIndex,
-  ) {
-    return EduCard(
-      onTap: () => setState(() => _currentIndex = tabIndex),
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withAlpha(25),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: color),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: Theme.of(context).textTheme.titleMedium),
-                Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-              ],
-            ),
-          ),
-          const Icon(
-            Icons.arrow_forward_ios_rounded,
-            size: 16,
-            color: AppTheme.textMuted,
-          ),
-        ],
       ),
     );
   }
@@ -704,7 +645,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     institutionCtrl.dispose();
   }
 
-  void _showUserDetailsDialog(User user) {
+  void _showUserDetailsDialog(user) {
     final roleColor = _roleColor(user.role);
     final roleName = _roleName(user.role);
     final joinDate = user.createdAt != null
@@ -843,7 +784,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 : ListView.separated(
                     shrinkWrap: true,
                     itemCount: reports.length,
-                    separatorBuilder: (_, _) => const Divider(height: 24),
+                    separatorBuilder: (_, __) => const Divider(height: 24),
                     itemBuilder: (_, index) {
                       final report = reports[index];
                       final id = report['id'] as int?;
@@ -939,6 +880,62 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  void _showBugReports(AdminProvider admin) {
+    final reports = (admin.reportsData?['bug_reports'] as List<dynamic>?) ?? [];
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.bug_report_rounded, color: AppTheme.accentOrange),
+            SizedBox(width: 10),
+            Text('Bug Reports'),
+          ],
+        ),
+        content: SizedBox(
+          width: 560,
+          child: reports.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Text('No bug reports submitted yet.'),
+                )
+              : ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: reports.length,
+                  separatorBuilder: (_, __) => const Divider(height: 24),
+                  itemBuilder: (_, index) {
+                    final report = reports[index] as Map<String, dynamic>;
+                    final reporter = report['reporter_name'] ?? 'Unknown user';
+                    final role = report['reporter_role'] ?? 'user';
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          report['title'] as String? ?? 'Untitled report',
+                          style: Theme.of(ctx).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(report['description'] as String? ?? ''),
+                        const SizedBox(height: 10),
+                        Text(
+                          '$reporter • $role • ${report['status'] ?? 'open'}',
+                          style: Theme.of(ctx).textTheme.bodySmall,
+                        ),
+                      ],
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildReportsTab(AdminProvider admin) {
     if (!admin.reportsLoaded && !admin.isReportsLoading) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1012,16 +1009,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'মোট তৈরি পরীক্ষা',
+                                'মোট টেস্ট সম্পন্ন',
                                 style: Theme.of(context).textTheme.titleMedium,
                               ),
                             ],
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            '${admin.reportsData?['total_exams_created'] ??
-                                admin.dashboardData?['total_exams_created'] ??
-                                0}',
+                            '${admin.reportsData?['total_tests_completed'] ?? 0}',
                             style: Theme.of(context).textTheme.displayMedium
                                 ?.copyWith(color: AppTheme.primaryColor),
                           ),
@@ -1231,9 +1226,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           FilledButton(
             onPressed: () async {
-              if (title.text.trim().isEmpty || price.text.trim().isEmpty) {
+              if (title.text.trim().isEmpty || price.text.trim().isEmpty)
                 return;
-              }
               final data = {
                 'title': title.text.trim(),
                 'subtitle': subtitle.text.trim(),
@@ -1272,7 +1266,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           Row(
             children: [
               IconButton(
-                onPressed: () => setState(() => _currentIndex = 3),
+                onPressed: () => setState(() => _currentIndex = 2),
                 icon: const Icon(Icons.arrow_back_rounded, size: 20),
                 tooltip: 'আগের পেজে ফিরুন',
               ),

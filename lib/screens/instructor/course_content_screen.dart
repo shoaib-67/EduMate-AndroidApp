@@ -7,8 +7,6 @@ import '../../providers/instructor_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/external_links.dart';
 import '../../widgets/common_widgets.dart';
-import '../../widgets/role_bottom_navigation.dart';
-import 'instructor_exams_screen.dart';
 
 class InstructorCourseContentScreen extends StatefulWidget {
   final Course course;
@@ -35,12 +33,11 @@ class _InstructorCourseContentScreenState
     final items = await context.read<InstructorProvider>().getCourseContent(
       widget.course.id!,
     );
-    if (mounted) {
+    if (mounted)
       setState(() {
         _content = items;
         _loading = false;
       });
-    }
   }
 
   Future<void> _addContent() async {
@@ -71,6 +68,7 @@ class _InstructorCourseContentScreenState
                       value: 'video',
                       child: Text('রেকর্ডেড ভিডিও'),
                     ),
+                    DropdownMenuItem(value: 'exam', child: Text('পরীক্ষা')),
                     DropdownMenuItem(value: 'live', child: Text('লাইভ ক্লাস')),
                   ],
                   onChanged: (value) =>
@@ -202,36 +200,17 @@ class _InstructorCourseContentScreenState
     );
   }
 
-  Widget _examsTab() => ListView(
-    padding: const EdgeInsets.all(20),
-    children: [
-      Text('এই কোর্সের পরীক্ষা', style: Theme.of(context).textTheme.titleLarge),
-      const SizedBox(height: 8),
-      const Text(
-        'প্রকাশের সঙ্গে সঙ্গে এনরোল করা শিক্ষার্থীরা পরীক্ষা দেখতে ও দিতে পারবে।',
-      ),
-      const SizedBox(height: 16),
-      EduButton(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => InstructorExamsScreen(course: widget.course),
-          ),
-        ),
-        icon: Icons.quiz_outlined,
-        text: 'পরীক্ষা তৈরি ও পরিচালনা',
-      ),
-    ],
-  );
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      bottomNavigationBar: const RoleBottomNavigation(
-        role: AppRole.instructor,
-        selectedIndex: 1,
-      ),
       appBar: AppBar(
         title: Text(widget.course.title),
+        actions: [
+          IconButton(
+            onPressed: _addContent,
+            icon: const Icon(Icons.add_circle_outline),
+          ),
+        ],
       ),
       body: _loading
           ? const LoadingIndicator()
@@ -239,24 +218,6 @@ class _InstructorCourseContentScreenState
               length: 4,
               child: Column(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'কোর্স কনটেন্ট',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                        ),
-                        EduButton(
-                          text: 'কনটেন্ট যোগ করুন',
-                          icon: Icons.add_rounded,
-                          onPressed: _addContent,
-                        ),
-                      ],
-                    ),
-                  ),
                   const TabBar(
                     isScrollable: true,
                     tabs: [
@@ -271,7 +232,7 @@ class _InstructorCourseContentScreenState
                       children: [
                         _contentList('pdf'),
                         _contentList('video'),
-                        _examsTab(),
+                        _contentList('exam'),
                         _contentList('live'),
                       ],
                     ),
