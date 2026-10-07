@@ -9,7 +9,9 @@ import '../../widgets/common_widgets.dart';
 import '../../utils/external_links.dart';
 
 class AdminDashboard extends StatefulWidget {
-  const AdminDashboard({super.key});
+  const AdminDashboard({super.key, this.initialTab = 0});
+
+  final int initialTab;
 
   @override
   State<AdminDashboard> createState() => _AdminDashboardState();
@@ -32,6 +34,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialTab;
     final user = context.read<AuthProvider>().user;
     _nameCtrl = TextEditingController(text: user?.name);
     _phoneCtrl = TextEditingController(text: user?.phone ?? '');
@@ -784,7 +787,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 : ListView.separated(
                     shrinkWrap: true,
                     itemCount: reports.length,
-                    separatorBuilder: (_, __) => const Divider(height: 24),
+                    separatorBuilder: (_, _) => const Divider(height: 24),
                     itemBuilder: (_, index) {
                       final report = reports[index];
                       final id = report['id'] as int?;
@@ -902,7 +905,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               : ListView.separated(
                   shrinkWrap: true,
                   itemCount: reports.length,
-                  separatorBuilder: (_, __) => const Divider(height: 24),
+                  separatorBuilder: (_, _) => const Divider(height: 24),
                   itemBuilder: (_, index) {
                     final report = reports[index] as Map<String, dynamic>;
                     final reporter = report['reporter_name'] ?? 'Unknown user';
@@ -943,118 +946,128 @@ class _AdminDashboardState extends State<AdminDashboard> {
       });
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconButton(
-                onPressed: () => setState(() => _currentIndex = 1),
-                icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                tooltip: 'আগের পেজে ফিরুন',
-              ),
-              Text(
-                'রিপোর্ট ও বিশ্লেষণ',
-                style: Theme.of(context).textTheme.headlineLarge,
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          admin.isReportsLoading || !admin.reportsLoaded
-              ? const LoadingIndicator()
-              : admin.reportsError != null
-              ? _buildReportsErrorState(admin)
-              : Column(
-                  children: [
-                    EduCard(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.trending_up_rounded,
-                                color: AppTheme.accentTeal,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'মোট রেজিস্ট্রেশন',
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            '${admin.reportsData?['total_registrations'] ?? 0}',
-                            style: Theme.of(context).textTheme.displayMedium
-                                ?.copyWith(color: AppTheme.accentTeal),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    EduCard(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.quiz_rounded,
-                                color: AppTheme.primaryColor,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'মোট টেস্ট সম্পন্ন',
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            '${admin.reportsData?['total_tests_completed'] ?? 0}',
-                            style: Theme.of(context).textTheme.displayMedium
-                                ?.copyWith(color: AppTheme.primaryColor),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    EduCard(
-                      onTap: () => _showBugReportsDialog(admin),
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.bug_report_rounded,
-                                color: AppTheme.accentOrange,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'বাগ রিপোর্ট',
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            '${admin.reportsData?['total_bug_reports'] ?? 0}',
-                            style: Theme.of(context).textTheme.displayMedium
-                                ?.copyWith(color: AppTheme.accentOrange),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+    return RefreshIndicator(
+      onRefresh: admin.loadReports,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () => setState(() => _currentIndex = 1),
+                  icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                  tooltip: 'আগের পেজে ফিরুন',
                 ),
-        ],
+                Text(
+                  'রিপোর্ট ও বিশ্লেষণ',
+                  style: Theme.of(context).textTheme.headlineLarge,
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            admin.isReportsLoading || !admin.reportsLoaded
+                ? const LoadingIndicator()
+                : admin.reportsError != null
+                ? _buildReportsErrorState(admin)
+                : Column(
+                    children: [
+                      EduCard(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.trending_up_rounded,
+                                  color: AppTheme.accentTeal,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'মোট রেজিস্ট্রেশন',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              '${admin.reportsData?['total_registrations'] ?? 0}',
+                              style: Theme.of(context).textTheme.displayMedium
+                                  ?.copyWith(color: AppTheme.accentTeal),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      EduCard(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.quiz_rounded,
+                                  color: AppTheme.primaryColor,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'মোট টেস্ট সম্পন্ন',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              '${admin.reportsData?['total_tests_completed'] ?? 0}',
+                              style: Theme.of(context).textTheme.displayMedium
+                                  ?.copyWith(color: AppTheme.primaryColor),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      EduCard(
+                        onTap: () => _showBugReportsDialog(admin),
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.bug_report_rounded,
+                                  color: AppTheme.accentOrange,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'বাগ রিপোর্ট',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              '${admin.reportsData?['total_bug_reports'] ?? 0}',
+                              style: Theme.of(context).textTheme.displayMedium
+                                  ?.copyWith(color: AppTheme.accentOrange),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+          ],
+        ),
       ),
     );
   }
@@ -1226,8 +1239,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           FilledButton(
             onPressed: () async {
-              if (title.text.trim().isEmpty || price.text.trim().isEmpty)
+              if (title.text.trim().isEmpty || price.text.trim().isEmpty) {
                 return;
+              }
               final data = {
                 'title': title.text.trim(),
                 'subtitle': subtitle.text.trim(),

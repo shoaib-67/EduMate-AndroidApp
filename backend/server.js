@@ -1213,6 +1213,12 @@ app.get('/api/reports', requireAuth, requireAdmin, async (_req, res) => {
   const [[examSummary]] = await pool.query(
     'SELECT COUNT(id) AS total_exams_created FROM tests',
   );
+  const [[registrationSummary]] = await pool.query(
+    'SELECT COUNT(id) AS total_registrations FROM users',
+  );
+  const [[testSummary]] = await pool.query(
+    'SELECT COUNT(id) AS total_tests_completed FROM test_results',
+  );
   const [bugReports] = await pool.query(`
     SELECT r.id, r.title, r.description, r.status, r.created_at,
       r.user_id, u.name AS reporter_name, u.email AS reporter_email,
@@ -1224,7 +1230,8 @@ app.get('/api/reports', requireAuth, requireAdmin, async (_req, res) => {
     total_reports: Number(summary.total_reports),
     open_reports: Number(summary.open_reports),
     resolved_reports: Number(summary.resolved_reports),
-    total_registrations: 0,
+    total_registrations: Number(registrationSummary.total_registrations),
+    total_tests_completed: Number(testSummary.total_tests_completed),
     total_exams_created: Number(examSummary.total_exams_created),
     total_bug_reports: Number(summary.total_reports),
     bug_reports: bugReports,

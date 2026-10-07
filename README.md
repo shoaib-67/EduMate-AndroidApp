@@ -52,35 +52,10 @@ EduMate is an admission-preparation and learning platform with separate experien
 
 Install and start MySQL locally first. The API uses the default local settings unless you create `backend/.env`.
 
-### One-time setup
 
-```powershell
-cd backend
-npm.cmd install
-```
 
-### Terminal 1: API
 
-```powershell
-cd backend
-npm.cmd start
-```
 
-### Terminal 2: Flutter Chrome
-
-From the project root:
-
-```powershell
-flutter run -d chrome
-```
-
-<<<<<<< HEAD
-
-=======
-The API creates the `edumate` database and tables automatically on startup. 
-Check the database connection at `http://localhost:5000/api/health`.
-
-The Chrome app connects automatically to `http://127.0.0.1:5000`. Android emulators use `http://10.0.2.2:5000`.
 
 
 

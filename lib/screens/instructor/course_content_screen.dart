@@ -33,11 +33,12 @@ class _InstructorCourseContentScreenState
     final items = await context.read<InstructorProvider>().getCourseContent(
       widget.course.id!,
     );
-    if (mounted)
+    if (mounted) {
       setState(() {
         _content = items;
         _loading = false;
       });
+    }
   }
 
   Future<void> _addContent() async {
