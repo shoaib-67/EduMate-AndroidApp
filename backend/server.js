@@ -74,6 +74,13 @@ function requireInstructor(req, res, next) {
   next();
 }
 
+function requireTeacher(req, res, next) {
+  if (req.auth?.role !== 'instructor') {
+    return res.status(403).json({ message: 'Teacher access required' });
+  }
+  next();
+}
+
 async function initializeDatabase() {
   const adminConnection = await mysql.createConnection({
     host: process.env.DB_HOST || '127.0.0.1',
@@ -134,6 +141,24 @@ async function initializeDatabase() {
       FOREIGN KEY (instructor_id) REFERENCES users(id) ON DELETE SET NULL
     )
   `);
+  const [enrollmentTables] = await pool.query("SHOW TABLES LIKE 'course_enrollments'");
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS course_enrollments (
+      course_id INT NOT NULL,
+      student_id INT NOT NULL,
+      enrolled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (course_id, student_id),
+      CONSTRAINT fk_tests_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+      FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+  if (enrollmentTables.length === 0) {
+    // Preserve course access for students who used the app before enrollments existed.
+    await pool.query(`
+      INSERT IGNORE INTO course_enrollments (course_id, student_id)
+      SELECT c.id, u.id FROM courses c CROSS JOIN users u WHERE u.role = 'student'
+    `);
+  }
   await pool.query(`
     CREATE TABLE IF NOT EXISTS reports (
       id INT PRIMARY KEY AUTO_INCREMENT,
@@ -182,13 +207,39 @@ async function initializeDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS tests (
       id INT PRIMARY KEY AUTO_INCREMENT,
+      course_id INT NOT NULL,
       title VARCHAR(180) NOT NULL,
       description TEXT,
       subject VARCHAR(120),
       duration INT NOT NULL DEFAULT 30,
+      per_mcq_mark DECIMAL(6,2) NOT NULL DEFAULT 1,
+      negative_marking DECIMAL(6,2) NOT NULL DEFAULT 0,
+      shuffle_mode ENUM('none', 'questions', 'questions_and_options') NOT NULL DEFAULT 'none',
+      published BOOLEAN NOT NULL DEFAULT TRUE,
+      FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  // Older installations already have tests without a course. Keep their demo
+  // data by attaching it to the seeded course after that course is created.
+  for (const [column, definition] of [
+    ['course_id', 'INT NULL'],
+    ['per_mcq_mark', 'DECIMAL(6,2) NOT NULL DEFAULT 1'],
+    ['negative_marking', 'DECIMAL(6,2) NOT NULL DEFAULT 0'],
+    ['shuffle_mode', "ENUM('none', 'questions', 'questions_and_options') NOT NULL DEFAULT 'none'"],
+    ['published', 'BOOLEAN NOT NULL DEFAULT TRUE'],
+  ]) {
+    const [existing] = await pool.query(`SHOW COLUMNS FROM tests LIKE ?`, [column]);
+    if (existing.length === 0) await pool.query(`ALTER TABLE tests ADD COLUMN ${column} ${definition}`);
+  }
+  const [courseForeignKey] = await pool.query(`
+    SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE
+    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'tests'
+      AND COLUMN_NAME = 'course_id' AND REFERENCED_TABLE_NAME = 'courses'
+  `, [databaseName]);
+  if (courseForeignKey.length === 0) {
+    await pool.query('ALTER TABLE tests ADD CONSTRAINT fk_tests_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE');
+  }
   await pool.query(`
     CREATE TABLE IF NOT EXISTS questions (
       id INT PRIMARY KEY AUTO_INCREMENT,
@@ -207,7 +258,7 @@ async function initializeDatabase() {
       user_id INT NOT NULL,
       test_id INT NOT NULL,
       score DECIMAL(5,2) NOT NULL DEFAULT 0,
-      total_marks INT NOT NULL DEFAULT 0,
+      total_marks DECIMAL(8,2) NOT NULL DEFAULT 0,
       correct_answers INT NOT NULL DEFAULT 0,
       total_questions INT NOT NULL DEFAULT 0,
       completed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -215,6 +266,10 @@ async function initializeDatabase() {
       FOREIGN KEY (test_id) REFERENCES tests(id) ON DELETE CASCADE
     )
   `);
+  const [marksColumn] = await pool.query("SHOW COLUMNS FROM test_results LIKE 'total_marks'");
+  if (marksColumn[0] && !String(marksColumn[0].Type).startsWith('decimal')) {
+    await pool.query('ALTER TABLE test_results MODIFY COLUMN total_marks DECIMAL(8,2) NOT NULL DEFAULT 0');
+  }
   await pool.query(`
     CREATE TABLE IF NOT EXISTS discussions (
       id INT PRIMARY KEY AUTO_INCREMENT,
@@ -274,15 +329,27 @@ async function initializeDatabase() {
       );
     }
   }
-  await pool.query(
+  const [seedCourseResult] = await pool.query(
     `INSERT INTO courses (title, description, instructor_id)
      SELECT 'ভর্তি প্রস্তুতির বেসিক', 'প্রতিদিনের প্রস্তুতির জন্য একটি শুরু কোর্স', NULL
      WHERE NOT EXISTS (SELECT 1 FROM courses WHERE title = 'ভর্তি প্রস্তুতির বেসিক')`,
   );
+  if (seedCourseResult.affectedRows === 1) {
+    await pool.query(`
+      INSERT IGNORE INTO course_enrollments (course_id, student_id)
+      SELECT c.id, u.id FROM courses c CROSS JOIN users u
+      WHERE c.title = 'ভর্তি প্রস্তুতির বেসিক' AND u.role = 'student'
+    `);
+  }
+  await pool.query(`
+    UPDATE tests t JOIN courses c ON c.title = 'ভর্তি প্রস্তুতির বেসিক'
+    SET t.course_id = c.id WHERE t.course_id IS NULL
+  `);
   const [testInsert] = await pool.query(
-    `INSERT INTO tests (title, description, subject, duration)
-     SELECT 'ডেমো মক টেস্ট', 'আপনার প্রস্তুতি যাচাই করুন', 'সাধারণ জ্ঞান', 30
-     WHERE NOT EXISTS (SELECT 1 FROM tests WHERE title = 'ডেমো মক টেস্ট')`,
+    `INSERT INTO tests (course_id, title, description, subject, duration)
+     SELECT c.id, 'ডেমো মক টেস্ট', 'আপনার প্রস্তুতি যাচাই করুন', 'সাধারণ জ্ঞান', 30
+     FROM courses c WHERE c.title = 'ভর্তি প্রস্তুতির বেসিক'
+       AND NOT EXISTS (SELECT 1 FROM tests WHERE title = 'ডেমো মক টেস্ট')`,
   );
   const testId = testInsert.insertId || (await pool.query(
     'SELECT id FROM tests WHERE title = ?',
@@ -396,7 +463,10 @@ app.get('/api/student/dashboard', requireAuth, async (req, res) => {
      ), 0)`,
     [req.auth.id],
   );
-  const [[courseCount]] = await pool.query('SELECT COUNT(*) AS enrolled_courses FROM courses');
+  const [[courseCount]] = await pool.query(
+    'SELECT COUNT(*) AS enrolled_courses FROM course_enrollments WHERE student_id = ?',
+    [req.auth.id],
+  );
   res.json({
     tests_completed: Number(userStats.tests_completed),
     avg_score: Number(Number(userStats.avg_score).toFixed(1)),
@@ -405,72 +475,134 @@ app.get('/api/student/dashboard', requireAuth, async (req, res) => {
   });
 });
 
-app.get('/api/student/courses', requireAuth, async (_req, res) => {
+app.get('/api/student/courses', requireAuth, async (req, res) => {
   const [courses] = await pool.query(`
-    SELECT id, title, description, NULL AS category, NULL AS thumbnail,
-      instructor_id, 0 AS total_lessons, 0 AS enrolled_count, 0 AS rating,
-      FALSE AS is_premium, created_at
-    FROM courses ORDER BY created_at DESC
-  `);
+    SELECT c.id, c.title, c.description, NULL AS category, NULL AS thumbnail,
+      c.instructor_id, 0 AS total_lessons,
+      (SELECT COUNT(*) FROM course_enrollments ce WHERE ce.course_id = c.id) AS enrolled_count,
+      0 AS rating,
+      FALSE AS is_premium, c.created_at
+    FROM courses c JOIN course_enrollments e ON e.course_id = c.id
+    WHERE e.student_id = ? ORDER BY c.created_at DESC
+  `, [req.auth.id]);
   res.json({ courses });
 });
 
 app.get('/api/student/tests', requireAuth, async (req, res) => {
   const [tests] = await pool.query(`
-    SELECT t.id, t.title, t.description, t.subject, t.duration,
-      COUNT(q.id) AS total_questions, COUNT(q.id) AS total_marks,
-      EXISTS(SELECT 1 FROM test_results r WHERE r.test_id = t.id AND r.user_id = ?) AS is_completed,
+    SELECT t.id, t.course_id, c.title AS course_title, t.title, t.description,
+      t.subject, t.duration, t.per_mcq_mark, t.negative_marking,
+      COUNT(q.id) AS total_questions, COUNT(q.id) * t.per_mcq_mark AS total_marks,
+      (SELECT COUNT(*) FROM test_results r WHERE r.test_id = t.id AND r.user_id = ?) AS attempt_count,
       t.created_at
-    FROM tests t LEFT JOIN questions q ON q.test_id = t.id
+    FROM tests t JOIN courses c ON c.id = t.course_id
+      JOIN course_enrollments e ON e.course_id = t.course_id AND e.student_id = ?
+      LEFT JOIN questions q ON q.test_id = t.id
+    WHERE t.published = TRUE
     GROUP BY t.id ORDER BY t.created_at DESC
-  `, [req.auth.id]);
-  res.json({ tests });
+  `, [req.auth.id, req.auth.id]);
+  res.json({ tests: tests.map((test) => ({ ...test,
+    is_completed: Number(test.attempt_count) > 0,
+    total_marks: Number(test.total_marks),
+    per_mcq_mark: Number(test.per_mcq_mark),
+    negative_marking: Number(test.negative_marking),
+  })) });
 });
 
 app.get('/api/student/tests/:id', requireAuth, async (req, res) => {
   const [[test]] = await pool.query(
-    'SELECT id, title, description, subject, duration, created_at FROM tests WHERE id = ?',
-    [req.params.id],
+    `SELECT t.id, t.course_id, c.title AS course_title, t.title, t.description,
+      t.subject, t.duration, t.per_mcq_mark, t.negative_marking, t.shuffle_mode,
+      t.created_at FROM tests t JOIN courses c ON c.id = t.course_id
+      JOIN course_enrollments e ON e.course_id = t.course_id AND e.student_id = ?
+      WHERE t.id = ? AND t.published = TRUE`,
+    [req.auth.id, req.params.id],
   );
   if (!test) return res.status(404).json({ message: 'Test not found' });
+  const [[attempts]] = await pool.query(
+    'SELECT COUNT(*) AS count FROM test_results WHERE user_id = ? AND test_id = ?',
+    [req.auth.id, req.params.id],
+  );
+  if (Number(attempts.count) >= 3) return res.status(409).json({ message: 'All 3 attempts have been used' });
   const [questions] = await pool.query(
-    `SELECT id, question_text, options, correct_option, explanation, subject
+    `SELECT id, question_text, options, subject
      FROM questions WHERE test_id = ? ORDER BY id`,
     [req.params.id],
   );
+  if (test.shuffle_mode !== 'none') {
+    for (let i = questions.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [questions[i], questions[j]] = [questions[j], questions[i]];
+    }
+  }
   res.json({
     ...test,
+    per_mcq_mark: Number(test.per_mcq_mark),
+    negative_marking: Number(test.negative_marking),
     total_questions: questions.length,
-    total_marks: questions.length,
-    questions: questions.map((question) => ({
-      ...question,
-      options: typeof question.options === 'string'
-        ? JSON.parse(question.options)
-        : question.options,
-    })),
+    total_marks: questions.length * Number(test.per_mcq_mark),
+    questions: questions.map((question) => {
+      const options = typeof question.options === 'string'
+        ? JSON.parse(question.options) : question.options;
+      const optionOrder = options.map((_, index) => index);
+      if (test.shuffle_mode === 'questions_and_options') {
+        for (let i = optionOrder.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [optionOrder[i], optionOrder[j]] = [optionOrder[j], optionOrder[i]];
+        }
+      }
+      return { ...question, options: optionOrder.map((index) => options[index]),
+        option_order: optionOrder };
+    }),
   });
 });
 
 app.post('/api/student/tests/submit', requireAuth, async (req, res) => {
   const { test_id: testId, answers = {} } = req.body || {};
+  const [[test]] = await pool.query(
+    `SELECT t.id, t.per_mcq_mark, t.negative_marking FROM tests t
+     JOIN course_enrollments e ON e.course_id = t.course_id AND e.student_id = ?
+     WHERE t.id = ? AND t.published = TRUE`,
+    [req.auth.id, testId],
+  );
+  if (!test) return res.status(404).json({ message: 'Test not found' });
+  const [[attempts]] = await pool.query(
+    'SELECT COUNT(*) AS count FROM test_results WHERE user_id = ? AND test_id = ?',
+    [req.auth.id, testId],
+  );
+  if (Number(attempts.count) >= 3) {
+    return res.status(409).json({ message: 'All 3 attempts have been used' });
+  }
+  if (answers == null || typeof answers !== 'object' || Array.isArray(answers)) {
+    return res.status(400).json({ message: 'Answers must be an object' });
+  }
   const [questions] = await pool.query(
     'SELECT id, correct_option FROM questions WHERE test_id = ?',
     [testId],
   );
   if (questions.length === 0) return res.status(404).json({ message: 'Test not found' });
   const correctAnswers = questions.filter(
-    (question) => Number(answers[String(question.id)]) === question.correct_option,
+    (question) => Object.hasOwn(answers, String(question.id)) &&
+      Number(answers[String(question.id)]) === question.correct_option,
   ).length;
-  const score = (correctAnswers / questions.length) * 100;
+  const incorrectAnswers = questions.filter((question) =>
+    Object.hasOwn(answers, String(question.id)) &&
+    Number(answers[String(question.id)]) !== question.correct_option).length;
+  const earnedMarks = Math.max(0, correctAnswers * Number(test.per_mcq_mark) -
+    incorrectAnswers * Number(test.negative_marking));
+  const totalMarks = questions.length * Number(test.per_mcq_mark);
+  const score = Math.round((earnedMarks / totalMarks) * 10000) / 100;
   await pool.query(
     `INSERT INTO test_results
       (user_id, test_id, score, total_marks, correct_answers, total_questions)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [req.auth.id, testId, score, questions.length, correctAnswers, questions.length],
+    [req.auth.id, testId, score, totalMarks, correctAnswers, questions.length],
   );
   res.status(201).json({
     message: 'Test submitted successfully',
     score,
+    earned_marks: earnedMarks,
+    total_marks: totalMarks,
     correct_answers: correctAnswers,
     total_questions: questions.length,
   });
@@ -578,9 +710,10 @@ app.get('/api/packages', requireAuth, async (_req, res) => {
 
 app.get('/api/student/courses/:id', requireAuth, async (req, res) => {
   const [[course]] = await pool.query(
-    `SELECT id, title, description, instructor_id, created_at
-     FROM courses WHERE id = ?`,
-    [req.params.id],
+    `SELECT c.id, c.title, c.description, c.instructor_id, c.created_at
+     FROM courses c JOIN course_enrollments e ON e.course_id = c.id
+     WHERE c.id = ? AND e.student_id = ?`,
+    [req.params.id, req.auth.id],
   );
   if (!course) return res.status(404).json({ message: 'Course not found' });
   const [courseContent] = await pool.query(
@@ -593,13 +726,19 @@ app.get('/api/student/courses/:id', requireAuth, async (req, res) => {
 
 app.get('/api/instructor/dashboard', requireAuth, requireInstructor, async (req, res) => {
   const [[courseStats]] = await pool.query(
-    'SELECT COUNT(*) AS total_courses FROM courses',
+    'SELECT COUNT(*) AS total_courses FROM courses WHERE instructor_id = ?',
+    [req.auth.id],
   );
   const [[studentStats]] = await pool.query(
-    `SELECT COUNT(DISTINCT user_id) AS total_students
-     FROM test_results WHERE user_id IN (SELECT id FROM users WHERE role = 'student')`,
+    `SELECT COUNT(DISTINCT e.student_id) AS total_students
+     FROM course_enrollments e JOIN courses c ON c.id = e.course_id
+     WHERE c.instructor_id = ?`,
+    [req.auth.id],
   );
-  const [[examStats]] = await pool.query('SELECT COUNT(*) AS total_exams FROM tests');
+  const [[examStats]] = await pool.query(
+    'SELECT COUNT(*) AS total_exams FROM tests t JOIN courses c ON c.id = t.course_id WHERE c.instructor_id = ?',
+    [req.auth.id],
+  );
   res.json({
     total_courses: Number(courseStats.total_courses),
     total_students: Number(studentStats.total_students),
@@ -610,42 +749,14 @@ app.get('/api/instructor/dashboard', requireAuth, requireInstructor, async (req,
 
 app.get('/api/instructor/courses', requireAuth, requireInstructor, async (req, res) => {
   const [courses] = await pool.query(
-    `SELECT id, title, description, NULL AS category, NULL AS thumbnail,
-      instructor_id, 0 AS total_lessons, 0 AS enrolled_count, 0 AS rating,
-      FALSE AS is_premium, created_at
-     FROM courses ORDER BY created_at DESC`,
+    `SELECT c.id, c.title, c.description, NULL AS category, NULL AS thumbnail,
+      c.instructor_id, 0 AS total_lessons,
+      (SELECT COUNT(*) FROM course_enrollments e WHERE e.course_id = c.id) AS enrolled_count,
+      0 AS rating, FALSE AS is_premium, c.created_at
+     FROM courses c WHERE c.instructor_id = ? ORDER BY c.created_at DESC`,
+    [req.auth.id],
   );
   res.json({ courses });
-});
-
-app.post('/api/instructor/courses', requireAuth, requireInstructor, async (req, res) => {
-  const { title, description } = req.body || {};
-  if (!title) return res.status(400).json({ message: 'Course title is required' });
-  const [result] = await pool.query(
-    'INSERT INTO courses (title, description, instructor_id) VALUES (?, ?, ?)',
-    [title, description || null, req.auth.id],
-  );
-  res.status(201).json({ message: 'Course created', id: result.insertId });
-});
-
-app.put('/api/instructor/courses/:id', requireAuth, requireInstructor, async (req, res) => {
-  const { title, description } = req.body || {};
-  if (!title) return res.status(400).json({ message: 'Course title is required' });
-  const [result] = await pool.query(
-    'UPDATE courses SET title = ?, description = ? WHERE id = ? AND instructor_id = ?',
-    [title, description || null, req.params.id, req.auth.id],
-  );
-  if (result.affectedRows === 0) return res.status(404).json({ message: 'Course not found' });
-  res.json({ message: 'Course updated' });
-});
-
-app.delete('/api/instructor/courses/:id', requireAuth, requireInstructor, async (req, res) => {
-  const [result] = await pool.query(
-    'DELETE FROM courses WHERE id = ? AND instructor_id = ?',
-    [req.params.id, req.auth.id],
-  );
-  if (result.affectedRows === 0) return res.status(404).json({ message: 'Course not found' });
-  res.json({ message: 'Course deleted' });
 });
 
 app.get('/api/instructor/courses/:id/content', requireAuth, requireInstructor, async (req, res) => {
@@ -664,7 +775,7 @@ app.get('/api/instructor/courses/:id/content', requireAuth, requireInstructor, a
 
 app.post('/api/instructor/courses/:id/content', requireAuth, requireInstructor, async (req, res) => {
   const { title, type, url, description } = req.body || {};
-  if (!title || !['pdf', 'video', 'exam', 'live'].includes(type) || !url || !description) {
+  if (!title || !['pdf', 'video', 'live'].includes(type) || !url || !description) {
     return res.status(400).json({ message: 'Title, type, URL and description are required' });
   }
   const [[course]] = await pool.query(
@@ -726,12 +837,317 @@ app.get('/api/admin/dashboard', requireAuth, requireAdmin, async (_req, res) => 
     FROM users
   `);
   const [[courses]] = await pool.query('SELECT COUNT(*) AS total_courses FROM courses');
+  const [[exams]] = await pool.query('SELECT COUNT(id) AS total_exams_created FROM tests');
   res.json({
     total_users: Number(totals.total_users),
     total_students: Number(totals.total_students),
     total_instructors: Number(totals.total_instructors),
     total_courses: Number(courses.total_courses),
+    total_exams_created: Number(exams.total_exams_created),
   });
+});
+
+app.post('/api/admin/courses', requireAuth, requireAdmin, async (req, res) => {
+  const { title, description, instructor_id: instructorId } = req.body || {};
+  if (typeof title !== 'string' || !title.trim()) {
+    return res.status(400).json({ message: 'Course title is required' });
+  }
+  if (instructorId != null && (!Number.isInteger(instructorId) || instructorId <= 0)) {
+    return res.status(400).json({ message: 'A valid instructor is required' });
+  }
+  if (instructorId != null) {
+    const [[instructor]] = await pool.query(
+      "SELECT id FROM users WHERE id = ? AND role = 'instructor'",
+      [instructorId],
+    );
+    if (!instructor) return res.status(400).json({ message: 'Instructor not found' });
+  }
+  const [result] = await pool.query(
+    'INSERT INTO courses (title, description, instructor_id) VALUES (?, ?, ?)',
+    [title.trim(), typeof description === 'string' ? description.trim() : null,
+      instructorId ?? null],
+  );
+  res.status(201).json({ message: 'Course created', id: result.insertId });
+});
+
+app.get('/api/admin/courses', requireAuth, requireAdmin, async (_req, res) => {
+  const [courses] = await pool.query(
+    `SELECT c.id, c.title, c.description, c.instructor_id,
+      u.name AS instructor_name, c.created_at,
+      (SELECT COUNT(*) FROM course_enrollments e WHERE e.course_id = c.id) AS enrolled_count
+     FROM courses c LEFT JOIN users u ON u.id = c.instructor_id
+     ORDER BY c.created_at DESC, c.id DESC`,
+  );
+  res.json({ courses });
+});
+
+app.put('/api/admin/courses/:id', requireAuth, requireAdmin, async (req, res) => {
+  const { title, description, instructor_id: instructorId } = req.body || {};
+  if (typeof title !== 'string' || !title.trim()) {
+    return res.status(400).json({ message: 'Course title is required' });
+  }
+  if (instructorId != null && (!Number.isInteger(instructorId) || instructorId <= 0)) {
+    return res.status(400).json({ message: 'A valid instructor is required' });
+  }
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    if (instructorId != null) {
+      const [[instructor]] = await connection.query(
+        "SELECT id FROM users WHERE id = ? AND role = 'instructor'",
+        [instructorId],
+      );
+      if (!instructor) {
+        await connection.rollback();
+        return res.status(400).json({ message: 'Instructor not found' });
+      }
+    }
+    const [result] = await connection.query(
+      'UPDATE courses SET title = ?, description = ?, instructor_id = ? WHERE id = ?',
+      [title.trim(), typeof description === 'string' ? description.trim() : null,
+        instructorId ?? null, req.params.id],
+    );
+    if (result.affectedRows === 0) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Course not found' });
+    }
+    if (instructorId != null) {
+      await connection.query(
+        'UPDATE course_content SET instructor_id = ? WHERE course_id = ?',
+        [instructorId, req.params.id],
+      );
+    }
+    await connection.commit();
+    res.json({ message: 'Course updated' });
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+});
+
+app.delete('/api/admin/courses/:id', requireAuth, requireAdmin, async (req, res) => {
+  const [result] = await pool.query('DELETE FROM courses WHERE id = ?', [req.params.id]);
+  if (result.affectedRows === 0) return res.status(404).json({ message: 'Course not found' });
+  res.json({ message: 'Course deleted' });
+});
+
+app.get('/api/admin/courses/:id/students', requireAuth, requireAdmin, async (req, res) => {
+  const [[course]] = await pool.query('SELECT id FROM courses WHERE id = ?', [req.params.id]);
+  if (!course) return res.status(404).json({ message: 'Course not found' });
+  const [students] = await pool.query(
+    `SELECT u.id, u.name, u.email,
+      IF(e.student_id IS NULL, 0, 1) AS is_enrolled
+     FROM users u LEFT JOIN course_enrollments e
+       ON e.student_id = u.id AND e.course_id = ?
+     WHERE u.role = 'student'
+     ORDER BY is_enrolled DESC, u.name`,
+    [req.params.id],
+  );
+  res.json({ students });
+});
+
+app.post('/api/admin/courses/:id/students', requireAuth, requireAdmin, async (req, res) => {
+  const studentId = req.body?.student_id;
+  if (!Number.isInteger(studentId) || studentId <= 0) {
+    return res.status(400).json({ message: 'A valid student is required' });
+  }
+  const [[course]] = await pool.query('SELECT id FROM courses WHERE id = ?', [req.params.id]);
+  if (!course) return res.status(404).json({ message: 'Course not found' });
+  const [[student]] = await pool.query(
+    "SELECT id FROM users WHERE id = ? AND role = 'student'",
+    [studentId],
+  );
+  if (!student) return res.status(400).json({ message: 'Student not found' });
+  const [result] = await pool.query(
+    'INSERT IGNORE INTO course_enrollments (course_id, student_id) VALUES (?, ?)',
+    [req.params.id, studentId],
+  );
+  res.status(result.affectedRows === 1 ? 201 : 200).json({ message: 'Student added to course' });
+});
+
+app.delete('/api/admin/courses/:id/students/:studentId', requireAuth, requireAdmin, async (req, res) => {
+  const [result] = await pool.query(
+    'DELETE FROM course_enrollments WHERE course_id = ? AND student_id = ?',
+    [req.params.id, req.params.studentId],
+  );
+  if (result.affectedRows === 0) return res.status(404).json({ message: 'Enrollment not found' });
+  res.json({ message: 'Student removed from course' });
+});
+
+function validateExam(body) {
+  const title = String(body?.title ?? '').trim();
+  const subject = String(body?.subject ?? '').trim();
+  const description = String(body?.description ?? '').trim();
+  const duration = Number(body?.duration);
+  const perMcqMark = Number(body?.per_mcq_mark);
+  const negativeMarking = Number(body?.negative_marking ?? 0);
+  const shuffleMode = body?.shuffle_mode ?? 'none';
+  const questions = body?.questions;
+  if (!title || !subject || title.length > 180 || subject.length > 120) return null;
+  if (!Number.isInteger(duration) || duration < 5 || duration > 60) return null;
+  if (!Number.isFinite(perMcqMark) || perMcqMark <= 0 || perMcqMark > 100) return null;
+  if (!Number.isFinite(negativeMarking) || negativeMarking < 0 || negativeMarking >= perMcqMark) return null;
+  if (!['none', 'questions', 'questions_and_options'].includes(shuffleMode)) return null;
+  if (!Array.isArray(questions) || questions.length < 1 || questions.length > 100) return null;
+  const cleanQuestions = questions.map((q) => ({
+    question_text: String(q?.question_text ?? '').trim(),
+    options: Array.isArray(q?.options) ? q.options.map((option) => String(option ?? '').trim()) : [],
+    correct_option: Number(q?.correct_option),
+  }));
+  if (cleanQuestions.some((q) => !q.question_text || q.options.length !== 4 ||
+      q.options.some((option) => !option) || !Number.isInteger(q.correct_option) ||
+      q.correct_option < 0 || q.correct_option > 3)) return null;
+  return { title, subject, description, duration, perMcqMark, negativeMarking,
+    shuffleMode, questions: cleanQuestions };
+}
+
+app.get('/api/instructor/courses/:id/exams', requireAuth, requireTeacher, async (req, res) => {
+  const [[course]] = await pool.query(
+    'SELECT id FROM courses WHERE id = ? AND instructor_id = ?',
+    [req.params.id, req.auth.id],
+  );
+  if (!course) return res.status(404).json({ message: 'Course not found' });
+  const [exams] = await pool.query(`
+    SELECT t.*, COUNT(DISTINCT q.id) AS total_questions,
+      COUNT(DISTINCT r.id) AS attempt_count
+    FROM tests t LEFT JOIN questions q ON q.test_id = t.id
+      LEFT JOIN test_results r ON r.test_id = t.id
+    WHERE t.course_id = ? GROUP BY t.id ORDER BY t.created_at DESC, t.id DESC
+  `, [req.params.id]);
+  res.json({ exams });
+});
+
+app.post('/api/instructor/courses/:id/exams', requireAuth, requireTeacher, async (req, res) => {
+  const courseId = Number(req.params.id);
+  const exam = validateExam(req.body);
+  if (!Number.isInteger(courseId) || courseId <= 0 || !exam) {
+    return res.status(400).json({ message: 'Provide a course, title, subject, duration (5–60 minutes), marking, and at least one complete MCQ' });
+  }
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [[course]] = await connection.query(
+      'SELECT id FROM courses WHERE id = ? AND instructor_id = ?',
+      [courseId, req.auth.id],
+    );
+    if (!course) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Course not found' });
+    }
+    const [result] = await connection.query(`
+      INSERT INTO tests (course_id, title, description, subject, duration,
+        per_mcq_mark, negative_marking, shuffle_mode, published)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE)
+    `, [courseId, exam.title, exam.description, exam.subject, exam.duration,
+      exam.perMcqMark, exam.negativeMarking, exam.shuffleMode]);
+    for (const question of exam.questions) {
+      await connection.query(`
+        INSERT INTO questions (test_id, question_text, options, correct_option, subject)
+        VALUES (?, ?, ?, ?, ?)
+      `, [result.insertId, question.question_text, JSON.stringify(question.options),
+        question.correct_option, exam.subject]);
+    }
+    await connection.commit();
+    res.status(201).json({ message: 'Exam published', id: result.insertId });
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+});
+
+app.get('/api/instructor/exams/:id', requireAuth, requireTeacher, async (req, res) => {
+  const [[exam]] = await pool.query(
+    `SELECT t.* FROM tests t JOIN courses c ON c.id = t.course_id
+     WHERE t.id = ? AND c.instructor_id = ?`,
+    [req.params.id, req.auth.id],
+  );
+  if (!exam) return res.status(404).json({ message: 'Exam not found' });
+  const [questions] = await pool.query(
+    'SELECT id, question_text, options, correct_option FROM questions WHERE test_id = ? ORDER BY id',
+    [req.params.id],
+  );
+  res.json({ exam: { ...exam, questions: questions.map((q) => ({
+    ...q, options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options,
+  })) } });
+});
+
+app.put('/api/instructor/exams/:id', requireAuth, requireTeacher, async (req, res) => {
+  const exam = validateExam(req.body);
+  if (!exam) return res.status(400).json({ message: 'Complete all exam fields and MCQs' });
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [[existing]] = await connection.query(
+      `SELECT t.id FROM tests t JOIN courses c ON c.id = t.course_id
+       WHERE t.id = ? AND c.instructor_id = ? FOR UPDATE`,
+      [req.params.id, req.auth.id],
+    );
+    if (!existing) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Exam not found' });
+    }
+    const [[attempts]] = await connection.query('SELECT COUNT(*) AS count FROM test_results WHERE test_id = ?', [req.params.id]);
+    if (Number(attempts.count) > 0) {
+      await connection.rollback();
+      return res.status(409).json({ message: 'An exam with student attempts cannot be edited' });
+    }
+    await connection.query(`
+      UPDATE tests SET title = ?, description = ?, subject = ?, duration = ?,
+        per_mcq_mark = ?, negative_marking = ?, shuffle_mode = ? WHERE id = ?
+    `, [exam.title, exam.description, exam.subject, exam.duration, exam.perMcqMark,
+      exam.negativeMarking, exam.shuffleMode, req.params.id]);
+    await connection.query('DELETE FROM questions WHERE test_id = ?', [req.params.id]);
+    for (const question of exam.questions) {
+      await connection.query(`
+        INSERT INTO questions (test_id, question_text, options, correct_option, subject)
+        VALUES (?, ?, ?, ?, ?)
+      `, [req.params.id, question.question_text, JSON.stringify(question.options),
+        question.correct_option, exam.subject]);
+    }
+    await connection.commit();
+    res.json({ message: 'Exam updated' });
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+});
+
+app.patch('/api/instructor/exams/:id/publish', requireAuth, requireTeacher, async (req, res) => {
+  if (typeof req.body?.published !== 'boolean') {
+    return res.status(400).json({ message: 'Published must be true or false' });
+  }
+  const [result] = await pool.query(
+    `UPDATE tests t JOIN courses c ON c.id = t.course_id
+     SET t.published = ? WHERE t.id = ? AND c.instructor_id = ?`,
+    [req.body.published, req.params.id, req.auth.id]);
+  if (!result.affectedRows) return res.status(404).json({ message: 'Exam not found' });
+  res.json({ message: req.body.published ? 'Exam published' : 'Exam hidden' });
+});
+
+app.delete('/api/instructor/exams/:id', requireAuth, requireTeacher, async (req, res) => {
+  const [[owned]] = await pool.query(
+    `SELECT t.id FROM tests t JOIN courses c ON c.id = t.course_id
+     WHERE t.id = ? AND c.instructor_id = ?`,
+    [req.params.id, req.auth.id],
+  );
+  if (!owned) return res.status(404).json({ message: 'Exam not found' });
+  const [[attempts]] = await pool.query('SELECT COUNT(*) AS count FROM test_results WHERE test_id = ?', [req.params.id]);
+  if (Number(attempts.count) > 0) {
+    return res.status(409).json({ message: 'An exam with student attempts cannot be deleted' });
+  }
+  const [result] = await pool.query(
+    `DELETE t FROM tests t JOIN courses c ON c.id = t.course_id
+     WHERE t.id = ? AND c.instructor_id = ?`,
+    [req.params.id, req.auth.id],
+  );
+  if (!result.affectedRows) return res.status(404).json({ message: 'Exam not found' });
+  res.json({ message: 'Exam deleted' });
 });
 
 app.get('/api/admin/users', requireAuth, requireAdmin, async (_req, res) => {
@@ -794,6 +1210,9 @@ app.get('/api/reports', requireAuth, requireAdmin, async (_req, res) => {
       SUM(status = 'resolved') AS resolved_reports
     FROM reports
   `);
+  const [[examSummary]] = await pool.query(
+    'SELECT COUNT(id) AS total_exams_created FROM tests',
+  );
   const [bugReports] = await pool.query(`
     SELECT r.id, r.title, r.description, r.status, r.created_at,
       r.user_id, u.name AS reporter_name, u.email AS reporter_email,
@@ -806,7 +1225,7 @@ app.get('/api/reports', requireAuth, requireAdmin, async (_req, res) => {
     open_reports: Number(summary.open_reports),
     resolved_reports: Number(summary.resolved_reports),
     total_registrations: 0,
-    total_tests_completed: 0,
+    total_exams_created: Number(examSummary.total_exams_created),
     total_bug_reports: Number(summary.total_reports),
     bug_reports: bugReports,
   });

@@ -55,6 +55,9 @@ class StudentService {
 
   Future<List<MockTest>> getTests() async {
     final response = await _api.get(ApiConfig.studentTests);
+    if (!response.success) {
+      throw StudentExamException(response.message ?? 'Could not load exams');
+    }
     if (response.success && response.data != null) {
       final list = response.data is Map
           ? (response.data['tests'] as List<dynamic>? ?? [])
@@ -68,6 +71,9 @@ class StudentService {
 
   Future<MockTest?> getTestDetails(int testId) async {
     final response = await _api.get('${ApiConfig.studentTests}/$testId');
+    if (!response.success) {
+      throw StudentExamException(response.message ?? 'Could not open exam');
+    }
     if (response.success && response.data != null) {
       return MockTest.fromJson(response.data as Map<String, dynamic>);
     }
@@ -112,7 +118,10 @@ class StudentService {
     );
   }
 
-  Future<ApiResponse> replyToDiscussion(int discussionId, String content) async {
+  Future<ApiResponse> replyToDiscussion(
+    int discussionId,
+    String content,
+  ) async {
     return await _api.post(
       '${ApiConfig.discussions}/$discussionId/reply',
       body: {'content': content},
@@ -143,4 +152,13 @@ class StudentService {
   Future<ApiResponse> updateProfile(Map<String, dynamic> data) async {
     return await _api.put(ApiConfig.studentProfile, body: data);
   }
+}
+
+class StudentExamException implements Exception {
+  final String message;
+
+  const StudentExamException(this.message);
+
+  @override
+  String toString() => message;
 }

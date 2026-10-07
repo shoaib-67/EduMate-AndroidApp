@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../models/package_plan.dart';
 import '../../providers/student_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/role_bottom_navigation.dart';
 
 class PackagesScreen extends StatelessWidget {
   const PackagesScreen({super.key});
@@ -11,96 +13,100 @@ class PackagesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomNavigationBar: const RoleBottomNavigation(
+        role: AppRole.student,
+        selectedIndex: 0,
+      ),
       appBar: AppBar(title: const Text('ফিচার প্যাকেজ')),
       body: FutureBuilder<List<PackagePlan>>(
         future: context.read<StudentProvider>().getPackages(),
         builder: (context, snapshot) {
           final managedPackages = snapshot.data ?? [];
           return SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'আপনার প্রস্তুতির জন্য\nউপযুক্ত প্ল্যান বেছে নিন',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'শুরু করার জন্য ফ্রি, ধারাবাহিক অনুশীলনের জন্য ১ মাস, আর গভীর প্রস্তুতির জন্য ৩ মাস।',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 24),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'আপনার প্রস্তুতির জন্য\nউপযুক্ত প্ল্যান বেছে নিন',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'শুরু করার জন্য ফ্রি, ধারাবাহিক অনুশীলনের জন্য ১ মাস, আর গভীর প্রস্তুতির জন্য ৩ মাস।',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 24),
 
-            ...managedPackages.map(
-              (plan) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: _PlanCard(
-                  title: plan.title,
-                  subtitle: plan.subtitle,
-                  price: plan.price,
-                  period: plan.period,
-                  features: plan.features,
-                  buttonText: 'প্যাকেজ নিন',
-                  color: AppTheme.primaryColor,
-                  isPopular: false,
+                ...managedPackages.map(
+                  (plan) => Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _PlanCard(
+                      title: plan.title,
+                      subtitle: plan.subtitle,
+                      price: plan.price,
+                      period: plan.period,
+                      features: plan.features,
+                      buttonText: 'প্যাকেজ নিন',
+                      color: AppTheme.primaryColor,
+                      isPopular: false,
+                      onTap: () {},
+                    ),
+                  ),
+                ),
+
+                // Free plan
+                _PlanCard(
+                  title: 'ফ্রি প্ল্যান',
+                  subtitle: 'শুরু করুন বিনামূল্যে',
+                  price: '৳০',
+                  period: '',
+                  features: const [
+                    'বেসিক মক টেস্ট অ্যাক্সেস',
+                    'নির্বাচিত ফ্রি PDF নোট',
+                    'দৈনিক স্টাডি রিমাইন্ডার',
+                  ],
+                  buttonText: 'ফ্রি শুরু করুন',
+                  color: AppTheme.textSecondary,
                   onTap: () {},
                 ),
-              ),
-            ),
+                const SizedBox(height: 16),
 
-            // Free plan
-            _PlanCard(
-              title: 'ফ্রি প্ল্যান',
-              subtitle: 'শুরু করুন বিনামূল্যে',
-              price: '৳০',
-              period: '',
-              features: const [
-                'বেসিক মক টেস্ট অ্যাক্সেস',
-                'নির্বাচিত ফ্রি PDF নোট',
-                'দৈনিক স্টাডি রিমাইন্ডার',
-              ],
-              buttonText: 'ফ্রি শুরু করুন',
-              color: AppTheme.textSecondary,
-              onTap: () {},
-            ),
-            const SizedBox(height: 16),
+                // 1 Month Plan
+                _PlanCard(
+                  title: '১ মাসের প্ল্যান',
+                  subtitle: 'দ্রুত উন্নতির জন্য',
+                  price: '৳৪৯৯',
+                  period: '/মাস',
+                  features: const [
+                    'সকল মক টেস্ট আনলিমিটেড',
+                    'প্রিমিয়াম ক্লাস কনটেন্ট অ্যাক্সেস',
+                    'পারফরম্যান্স অ্যানালিটিক্স রিপোর্ট',
+                  ],
+                  buttonText: '১ মাস নিন',
+                  color: AppTheme.primaryColor,
+                  isPopular: true,
+                  onTap: () {},
+                ),
+                const SizedBox(height: 16),
 
-            // 1 Month Plan
-            _PlanCard(
-              title: '১ মাসের প্ল্যান',
-              subtitle: 'দ্রুত উন্নতির জন্য',
-              price: '৳৪৯৯',
-              period: '/মাস',
-              features: const [
-                'সকল মক টেস্ট আনলিমিটেড',
-                'প্রিমিয়াম ক্লাস কনটেন্ট অ্যাক্সেস',
-                'পারফরম্যান্স অ্যানালিটিক্স রিপোর্ট',
+                // 3 Month Plan
+                _PlanCard(
+                  title: '৩ মাসের প্ল্যান',
+                  subtitle: 'সেরা ভ্যালু প্যাকেজ',
+                  price: '৳১২৯৯',
+                  period: '/৩ মাস',
+                  features: const [
+                    '১ মাসের সব ফিচার অন্তর্ভুক্ত',
+                    'ব্যাচভিত্তিক প্রিমিয়াম পেইড ক্লাস',
+                    'প্রায়োরিটি সাপোর্ট ও গাইডেন্স',
+                  ],
+                  buttonText: '৩ মাস নিন',
+                  color: AppTheme.accentTeal,
+                  onTap: () {},
+                ),
               ],
-              buttonText: '১ মাস নিন',
-              color: AppTheme.primaryColor,
-              isPopular: true,
-              onTap: () {},
             ),
-            const SizedBox(height: 16),
-
-            // 3 Month Plan
-            _PlanCard(
-              title: '৩ মাসের প্ল্যান',
-              subtitle: 'সেরা ভ্যালু প্যাকেজ',
-              price: '৳১২৯৯',
-              period: '/৩ মাস',
-              features: const [
-                '১ মাসের সব ফিচার অন্তর্ভুক্ত',
-                'ব্যাচভিত্তিক প্রিমিয়াম পেইড ক্লাস',
-                'প্রায়োরিটি সাপোর্ট ও গাইডেন্স',
-              ],
-              buttonText: '৩ মাস নিন',
-              color: AppTheme.accentTeal,
-              onTap: () {},
-            ),
-          ],
-        ),
           );
         },
       ),
@@ -165,10 +171,8 @@ class _PlanCard extends StatelessWidget {
             children: [
               Text(
                 price,
-                style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                      color: color,
-                      fontWeight: FontWeight.w800,
-                    ),
+                style: Theme.of(context).textTheme.displayMedium
+                    ?.copyWith(color: color, fontWeight: FontWeight.w800),
               ),
               if (period.isNotEmpty)
                 Padding(

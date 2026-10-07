@@ -39,6 +39,7 @@ class ApiConfig {
 
   // Admin endpoints
   static const String adminDashboard = '/api/admin/dashboard';
+  static const String adminCourses = '/api/admin/courses';
   static const String adminUsers = '/api/admin/users';
   static const String adminContent = '/api/admin/content';
 

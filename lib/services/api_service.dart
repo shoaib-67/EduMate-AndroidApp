@@ -92,6 +92,28 @@ class ApiService {
     }
   }
 
+  Future<ApiResponse> patch(
+    String endpoint, {
+    Map<String, dynamic>? body,
+  }) async {
+    try {
+      final response = await _client
+          .patch(
+            Uri.parse(_buildUrl(endpoint)),
+            headers: _headers,
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(const Duration(seconds: 8));
+      return _handleResponse(response);
+    } catch (e) {
+      return ApiResponse(
+        success: false,
+        statusCode: 0,
+        message: 'সংযোগ ত্রুটি: $e',
+      );
+    }
+  }
+
   Future<ApiResponse> delete(String endpoint) async {
     try {
       final response = await _client

@@ -7,18 +7,21 @@ import '../../models/user.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/my_bug_reports.dart';
+import '../../widgets/role_bottom_navigation.dart';
 import '../../utils/external_links.dart';
 import 'course_details_screen.dart';
 
 class StudentDashboard extends StatefulWidget {
-  const StudentDashboard({super.key});
+  const StudentDashboard({super.key, this.initialTab = 0});
+
+  final int initialTab;
 
   @override
   State<StudentDashboard> createState() => _StudentDashboardState();
 }
 
 class _StudentDashboardState extends State<StudentDashboard> {
-  int _currentIndex = 0;
+  late int _currentIndex;
   TextEditingController? _nameCtrl;
   TextEditingController? _phoneCtrl;
   TextEditingController? _institutionCtrl;
@@ -33,9 +36,13 @@ class _StudentDashboardState extends State<StudentDashboard> {
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialTab;
     _initializeProfileControllers(context.read<AuthProvider>().user);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<StudentProvider>().loadDashboard();
+      if (_currentIndex == 4) {
+        context.read<StudentProvider>().loadMyBugReports();
+      }
     });
   }
 
@@ -92,42 +99,15 @@ class _StudentDashboardState extends State<StudentDashboard> {
             ? _buildProgressTab()
             : _buildEditableProfileTab(auth),
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceColor,
-          border: Border(top: BorderSide(color: const Color(0xFFDCE5EF))),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (i) {
-            if (i == 4) {
-              context.read<StudentProvider>().loadMyBugReports();
-            }
-            setState(() => _currentIndex = i);
-          },
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard_rounded),
-              label: 'ড্যাশবোর্ড',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.menu_book_rounded),
-              label: 'কোর্স',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.quiz_rounded),
-              label: 'মক টেস্ট',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.analytics_rounded),
-              label: 'অগ্রগতি',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_rounded),
-              label: 'প্রোফাইল',
-            ),
-          ],
-        ),
+      bottomNavigationBar: RoleBottomNavigation(
+        role: AppRole.student,
+        selectedIndex: _currentIndex,
+        onTap: (i) {
+          if (i == 4) {
+            context.read<StudentProvider>().loadMyBugReports();
+          }
+          setState(() => _currentIndex = i);
+        },
       ),
     );
   }
@@ -457,9 +437,15 @@ class _StudentDashboardState extends State<StudentDashboard> {
             ),
           ),
           const SizedBox(height: 16),
-          Text(auth.user?.name ?? '', style: Theme.of(context).textTheme.headlineMedium),
+          Text(
+            auth.user?.name ?? '',
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
           const SizedBox(height: 4),
-          Text(auth.user?.email ?? '', style: Theme.of(context).textTheme.bodyMedium),
+          Text(
+            auth.user?.email ?? '',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
           const SizedBox(height: 32),
           EduCard(
             padding: const EdgeInsets.all(24),
@@ -504,7 +490,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
                     text: 'আপডেট করুন',
                     icon: Icons.save_rounded,
                     isLoading: _isSavingProfile,
-                    onPressed: _isSavingProfile ? null : () => _saveProfile(auth),
+                    onPressed: _isSavingProfile
+                        ? null
+                        : () => _saveProfile(auth),
                   ),
                 ),
               ],
@@ -516,10 +504,17 @@ class _StudentDashboardState extends State<StudentDashboard> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [
-                const Icon(Icons.workspace_premium_outlined, color: AppTheme.textSecondary, size: 22),
+                const Icon(
+                  Icons.workspace_premium_outlined,
+                  color: AppTheme.textSecondary,
+                  size: 22,
+                ),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: Text('প্যাকেজসমূহ', style: Theme.of(context).textTheme.titleMedium),
+                  child: Text(
+                    'প্যাকেজসমূহ',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
                 const Icon(Icons.chevron_right_rounded, size: 20),
               ],
@@ -534,10 +529,17 @@ class _StudentDashboardState extends State<StudentDashboard> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [
-                const Icon(Icons.bug_report_outlined, color: AppTheme.textSecondary, size: 22),
+                const Icon(
+                  Icons.bug_report_outlined,
+                  color: AppTheme.textSecondary,
+                  size: 22,
+                ),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: Text('বাগ রিপোর্ট', style: Theme.of(context).textTheme.titleMedium),
+                  child: Text(
+                    'বাগ রিপোর্ট',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
                 const Icon(Icons.chevron_right_rounded, size: 20),
               ],
@@ -554,144 +556,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildProfileTab(AuthProvider auth) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              IconButton(
-                onPressed: () => _showTab(3),
-                icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                tooltip: 'হোমে ফিরুন',
-              ),
-              Expanded(
-                child: Text(
-                  'প্রোফাইল',
-                  style: Theme.of(context).textTheme.headlineLarge,
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: () {
-                  openGreenEarthWebsite();
-                },
-                icon: const Icon(Icons.info_outline, size: 18),
-                label: const Text('আমাদের সম্পর্কে'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: AppTheme.primaryGradient,
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.primaryColor.withAlpha(77),
-                  blurRadius: 20,
-                ),
-              ],
-            ),
-            child: Text(
-              (auth.user?.name ?? 'U').substring(0, 1).toUpperCase(),
-              style: const TextStyle(
-                fontSize: 36,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            auth.user?.name ?? '',
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            auth.user?.email ?? '',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withAlpha(25),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              'শিক্ষার্থী',
-              style: TextStyle(
-                color: AppTheme.primaryColor,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(height: 32),
-          _profileMenuItem(
-            Icons.person_outline,
-            'প্রোফাইল সম্পাদনা',
-            () => Navigator.of(context).pushNamed('/student/profile'),
-          ),
-          _profileMenuItem(
-            Icons.analytics_outlined,
-            'পারফরম্যান্স',
-            () => Navigator.of(context).pushNamed('/student/performance'),
-          ),
-          _profileMenuItem(
-            Icons.workspace_premium_outlined,
-            'প্যাকেজসমূহ',
-            () => Navigator.of(context).pushNamed('/student/packages'),
-          ),
-          _profileMenuItem(
-            Icons.bug_report_outlined,
-            'বাগ রিপোর্ট',
-            () => Navigator.of(context).pushNamed('/student/report-bug'),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: EduButton(
-              text: 'লগআউট',
-              isOutlined: true,
-              icon: Icons.logout_rounded,
-              onPressed: () => _handleLogout(auth),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _profileMenuItem(IconData icon, String title, VoidCallback onTap) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: EduCard(
-        onTap: onTap,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Icon(icon, color: AppTheme.textSecondary, size: 22),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                title,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ),
-            const Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 16,
-              color: AppTheme.textMuted,
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -773,7 +637,7 @@ class _InlineCoursesViewState extends State<_InlineCoursesView> {
               ? const EmptyState(
                   icon: Icons.menu_book_rounded,
                   title: 'কোনো কোর্স পাওয়া যায়নি',
-                  subtitle: 'নতুন কোর্স শীঘ্রই আসছে',
+                  subtitle: 'অ্যাডমিন আপনাকে কোর্সে যোগ করলে এখানে দেখা যাবে',
                 )
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -786,11 +650,12 @@ class _InlineCoursesViewState extends State<_InlineCoursesView> {
                         onTap: course.id == null
                             ? null
                             : () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        StudentCourseDetailsScreen(course: course),
+                                MaterialPageRoute(
+                                  builder: (_) => StudentCourseDetailsScreen(
+                                    course: course,
                                   ),
                                 ),
+                              ),
                         padding: const EdgeInsets.all(16),
                         child: Row(
                           children: [
@@ -907,10 +772,14 @@ class _InlineTestsViewState extends State<_InlineTestsView> {
               : !student.testsLoaded
               ? const LoadingIndicator(message: 'টেস্ট লোড হচ্ছে...')
               : student.tests.isEmpty
-              ? const EmptyState(
+              ? EmptyState(
                   icon: Icons.quiz_rounded,
-                  title: 'কোনো মক টেস্ট নেই',
-                  subtitle: 'নতুন টেস্ট শীঘ্রই আসবে',
+                  title: student.error == null
+                      ? 'কোনো মক টেস্ট নেই'
+                      : 'পরীক্ষা লোড করা যায়নি',
+                  subtitle:
+                      student.error ??
+                      'আপনার কোর্সে নতুন পরীক্ষা প্রকাশ হলে এখানে দেখাবে',
                 )
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -921,6 +790,16 @@ class _InlineTestsViewState extends State<_InlineTestsView> {
                       padding: const EdgeInsets.only(bottom: 12),
                       child: EduCard(
                         onTap: () async {
+                          if ((test.attemptCount ?? 0) >= 3) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'এই পরীক্ষার ৩টি সুযোগ শেষ হয়েছে',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
                           final testId = test.id;
                           if (testId == null) return;
                           final studentProvider = context
@@ -928,7 +807,18 @@ class _InlineTestsViewState extends State<_InlineTestsView> {
                           final details = await studentProvider.getTestDetails(
                             testId,
                           );
-                          if (!context.mounted || details == null) return;
+                          if (!context.mounted) return;
+                          if (details == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  studentProvider.error ??
+                                      'পরীক্ষা খোলা যায়নি',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
                           final navigator = Navigator.of(context);
                           navigator.pushNamed(
                             '/student/test',
@@ -966,7 +856,7 @@ class _InlineTestsViewState extends State<_InlineTestsView> {
                                             .titleMedium,
                                       ),
                                       Text(
-                                        test.subject ?? 'সাধারণ',
+                                        '${test.courseTitle ?? 'কোর্স'} · ${test.subject ?? 'সাধারণ'}',
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodySmall,
@@ -984,9 +874,9 @@ class _InlineTestsViewState extends State<_InlineTestsView> {
                                       color: AppTheme.success.withAlpha(25),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: const Text(
-                                      'সম্পন্ন',
-                                      style: TextStyle(
+                                    child: Text(
+                                      '${test.attemptCount ?? 1}/3 সুযোগ',
+                                      style: const TextStyle(
                                         color: AppTheme.success,
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,

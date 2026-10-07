@@ -1,5 +1,6 @@
 import '../config/api_config.dart';
 import '../models/user.dart';
+import '../models/course.dart';
 import 'api_service.dart';
 import '../models/package_plan.dart';
 
@@ -37,6 +38,55 @@ class AdminService {
     return await _api.post(ApiConfig.adminUsers, body: data);
   }
 
+  Future<ApiResponse> createCourse(Map<String, dynamic> data) async {
+    return _api.post(ApiConfig.adminCourses, body: data);
+  }
+
+  Future<List<Course>> getCourses() async {
+    final response = await _api.get(ApiConfig.adminCourses);
+    if (!response.success) {
+      throw Exception(response.message ?? 'Unable to load courses');
+    }
+    if (response.data is! Map) throw Exception('Invalid courses response');
+    return ((response.data['courses'] as List<dynamic>?) ?? [])
+        .map((item) => Course.fromJson(Map<String, dynamic>.from(item as Map)))
+        .toList();
+  }
+
+  Future<ApiResponse> updateCourse(int id, Map<String, dynamic> data) {
+    return _api.put('${ApiConfig.adminCourses}/$id', body: data);
+  }
+
+  Future<ApiResponse> deleteCourse(int id) {
+    return _api.delete('${ApiConfig.adminCourses}/$id');
+  }
+
+  Future<List<Map<String, dynamic>>> getCourseStudents(int courseId) async {
+    final response = await _api.get(
+      '${ApiConfig.adminCourses}/$courseId/students',
+    );
+    if (!response.success) {
+      throw Exception(response.message ?? 'Unable to load students');
+    }
+    if (response.data is! Map) throw Exception('Invalid students response');
+    return ((response.data['students'] as List<dynamic>?) ?? [])
+        .map((item) => Map<String, dynamic>.from(item as Map))
+        .toList();
+  }
+
+  Future<ApiResponse> addStudentToCourse(int courseId, int studentId) {
+    return _api.post(
+      '${ApiConfig.adminCourses}/$courseId/students',
+      body: {'student_id': studentId},
+    );
+  }
+
+  Future<ApiResponse> removeStudentFromCourse(int courseId, int studentId) {
+    return _api.delete(
+      '${ApiConfig.adminCourses}/$courseId/students/$studentId',
+    );
+  }
+
   Future<ApiResponse> updateUserRole(int id, String role) async {
     return await _api.put('${ApiConfig.adminUsers}/$id', body: {'role': role});
   }
@@ -53,10 +103,7 @@ class AdminService {
   }
 
   Future<ApiResponse> updateBugReportStatus(int id, String status) async {
-    return await _api.put(
-      '/api/reports/$id/status',
-      body: {'status': status},
-    );
+    return await _api.put('/api/reports/$id/status', body: {'status': status});
   }
 
   Future<List<dynamic>> getContent() async {
@@ -76,12 +123,17 @@ class AdminService {
   Future<List<PackagePlan>> getPackages() async {
     final response = await _api.get(ApiConfig.packages);
     if (response.success && response.data is Map) {
-      return ((response.data['packages'] as List<dynamic>?) ?? []).map((p) => PackagePlan.fromJson(p)).toList();
+      return ((response.data['packages'] as List<dynamic>?) ?? [])
+          .map((p) => PackagePlan.fromJson(p))
+          .toList();
     }
     return [];
   }
 
-  Future<ApiResponse> createPackage(Map<String, dynamic> data) => _api.post(ApiConfig.adminPackages, body: data);
-  Future<ApiResponse> updatePackage(int id, Map<String, dynamic> data) => _api.put('${ApiConfig.adminPackages}/$id', body: data);
-  Future<ApiResponse> deletePackage(int id) => _api.delete('${ApiConfig.adminPackages}/$id');
+  Future<ApiResponse> createPackage(Map<String, dynamic> data) =>
+      _api.post(ApiConfig.adminPackages, body: data);
+  Future<ApiResponse> updatePackage(int id, Map<String, dynamic> data) =>
+      _api.put('${ApiConfig.adminPackages}/$id', body: data);
+  Future<ApiResponse> deletePackage(int id) =>
+      _api.delete('${ApiConfig.adminPackages}/$id');
 }

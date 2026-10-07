@@ -5,6 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../providers/student_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/role_bottom_navigation.dart';
 
 class PerformanceScreen extends StatefulWidget {
   const PerformanceScreen({super.key});
@@ -27,6 +28,10 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
     final student = context.watch<StudentProvider>();
 
     return Scaffold(
+      bottomNavigationBar: const RoleBottomNavigation(
+        role: AppRole.student,
+        selectedIndex: 3,
+      ),
       appBar: AppBar(title: const Text('পারফরম্যান্স')),
       body: student.isPerformanceLoading || !student.performanceLoaded
           ? const LoadingIndicator(message: 'ডাটা লোড হচ্ছে...')

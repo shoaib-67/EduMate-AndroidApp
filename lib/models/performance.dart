@@ -65,7 +65,7 @@ class TestResult {
   final int? id;
   final String? testTitle;
   final double? score;
-  final int? totalMarks;
+  final double? totalMarks;
   final int? correctAnswers;
   final int? totalQuestions;
   final int? rank;
@@ -86,8 +86,8 @@ class TestResult {
     return TestResult(
       id: json['id'] as int?,
       testTitle: json['test_title'] as String?,
-      score: (json['score'] as num?)?.toDouble(),
-      totalMarks: json['total_marks'] as int?,
+      score: double.tryParse('${json['score'] ?? ''}'),
+      totalMarks: double.tryParse('${json['total_marks'] ?? ''}'),
       correctAnswers: json['correct_answers'] as int?,
       totalQuestions: json['total_questions'] as int?,
       rank: json['rank'] as int?,

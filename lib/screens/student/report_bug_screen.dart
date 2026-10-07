@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/student_provider.dart';
 import '../../providers/instructor_provider.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/role_bottom_navigation.dart';
 
 class ReportBugScreen extends StatefulWidget {
   final bool isInstructor;
@@ -55,6 +57,10 @@ class _ReportBugScreenState extends State<ReportBugScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomNavigationBar: RoleBottomNavigation(
+        role: widget.isInstructor ? AppRole.instructor : AppRole.student,
+        selectedIndex: widget.isInstructor ? 3 : 4,
+      ),
       appBar: AppBar(title: const Text('বাগ রিপোর্ট')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),

@@ -27,18 +27,6 @@ class InstructorService {
     return [];
   }
 
-  Future<ApiResponse> createCourse(Map<String, dynamic> data) async {
-    return await _api.post(ApiConfig.instructorCourses, body: data);
-  }
-
-  Future<ApiResponse> updateCourse(int id, Map<String, dynamic> data) async {
-    return await _api.put('${ApiConfig.instructorCourses}/$id', body: data);
-  }
-
-  Future<ApiResponse> deleteCourse(int id) async {
-    return await _api.delete('${ApiConfig.instructorCourses}/$id');
-  }
-
   Future<List<CourseContent>> getCourseContent(int courseId) async {
     final response = await _api.get(
       '${ApiConfig.instructorCourses}/$courseId/content',
@@ -67,9 +55,40 @@ class InstructorService {
     );
   }
 
-  Future<ApiResponse> createExam(Map<String, dynamic> data) async {
-    return await _api.post(ApiConfig.instructorExams, body: data);
+  Future<List<Map<String, dynamic>>> getCourseExams(int courseId) async {
+    final response = await _api.get(
+      '${ApiConfig.instructorCourses}/$courseId/exams',
+    );
+    if (!response.success) {
+      throw Exception(response.message ?? 'Unable to load exams');
+    }
+    final data = Map<String, dynamic>.from(response.data as Map);
+    return (data['exams'] as List<dynamic>? ?? [])
+        .map((item) => Map<String, dynamic>.from(item as Map))
+        .toList();
   }
+
+  Future<Map<String, dynamic>> getExam(int examId) async {
+    final response = await _api.get('${ApiConfig.instructorExams}/$examId');
+    if (!response.success) {
+      throw Exception(response.message ?? 'Unable to load exam');
+    }
+    return Map<String, dynamic>.from((response.data as Map)['exam'] as Map);
+  }
+
+  Future<ApiResponse> createExam(int courseId, Map<String, dynamic> data) =>
+      _api.post('${ApiConfig.instructorCourses}/$courseId/exams', body: data);
+
+  Future<ApiResponse> updateExam(int examId, Map<String, dynamic> data) =>
+      _api.put('${ApiConfig.instructorExams}/$examId', body: data);
+
+  Future<ApiResponse> publishExam(int examId, bool published) => _api.patch(
+    '${ApiConfig.instructorExams}/$examId/publish',
+    body: {'published': published},
+  );
+
+  Future<ApiResponse> deleteExam(int examId) =>
+      _api.delete('${ApiConfig.instructorExams}/$examId');
 
   Future<List<dynamic>> getStudentResults() async {
     final response = await _api.get(ApiConfig.instructorStudents);

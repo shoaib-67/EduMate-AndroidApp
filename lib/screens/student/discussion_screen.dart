@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/student_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/role_bottom_navigation.dart';
 
 class DiscussionScreen extends StatefulWidget {
   const DiscussionScreen({super.key});
@@ -100,6 +101,10 @@ class _DiscussionScreenState extends State<DiscussionScreen> {
     final student = context.watch<StudentProvider>();
 
     return Scaffold(
+      bottomNavigationBar: const RoleBottomNavigation(
+        role: AppRole.student,
+        selectedIndex: 0,
+      ),
       appBar: AppBar(title: const Text('আলোচনা')),
       floatingActionButton: FloatingActionButton(
         onPressed: _showCreateDialog,

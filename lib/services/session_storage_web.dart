@@ -1,4 +1,4 @@
-import 'dart:html' as html;
+import 'package:web/web.dart' as web;
 
 class SessionStorage {
   const SessionStorage();
@@ -6,22 +6,25 @@ class SessionStorage {
   String _key(String key) => 'edumate_$key';
 
   Future<String?> read({required String key}) async =>
-      html.window.sessionStorage[_key(key)];
+      web.window.sessionStorage.getItem(_key(key));
 
   Future<void> write({required String key, required String value}) async {
-    html.window.sessionStorage[_key(key)] = value;
+    web.window.sessionStorage.setItem(_key(key), value);
   }
 
   Future<void> delete({required String key}) async {
-    html.window.sessionStorage.remove(_key(key));
+    web.window.sessionStorage.removeItem(_key(key));
   }
 
   Future<void> deleteAll() async {
-    final keys = html.window.sessionStorage.keys
-        .where((key) => key.startsWith('edumate_'))
-        .toList();
+    final storage = web.window.sessionStorage;
+    final keys = [
+      for (var index = 0; index < storage.length; index++)
+        if (storage.key(index) case final key? when key.startsWith('edumate_'))
+          key,
+    ];
     for (final key in keys) {
-      html.window.sessionStorage.remove(key);
+      storage.removeItem(key);
     }
   }
 }

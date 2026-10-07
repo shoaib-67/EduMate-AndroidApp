@@ -109,13 +109,14 @@ class StudentProvider extends ChangeNotifier {
 
   Future<void> loadTests() async {
     _isTestsLoading = true;
+    _error = null;
     notifyListeners();
 
     try {
       _tests = await _service.getTests();
-    } catch (_) {
+    } catch (error) {
       _tests = [];
-      _error = 'টেস্টের তথ্য পাওয়া যায়নি';
+      _error = error.toString();
     } finally {
       _testsLoaded = true;
       _isTestsLoading = false;
@@ -193,17 +194,25 @@ class StudentProvider extends ChangeNotifier {
     return response;
   }
 
-  Future<bool> submitTest(int testId, Map<int, int> answers) async {
+  Future<ApiResponse> submitTest(int testId, Map<int, int> answers) async {
     final response = await _service.submitTest(testId, answers);
     if (!response.success) {
       _error = response.message;
       notifyListeners();
     }
-    return response.success;
+    if (response.success) await loadTests();
+    return response;
   }
 
-  Future<MockTest?> getTestDetails(int testId) {
-    return _service.getTestDetails(testId);
+  Future<MockTest?> getTestDetails(int testId) async {
+    _error = null;
+    try {
+      return await _service.getTestDetails(testId);
+    } catch (error) {
+      _error = error.toString();
+      notifyListeners();
+      return null;
+    }
   }
 
   void clearError() {

@@ -6,6 +6,7 @@ import '../../providers/student_provider.dart';
 import '../../models/user.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/role_bottom_navigation.dart';
 import '../../utils/external_links.dart';
 import 'packages_screen.dart';
 
@@ -82,9 +83,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
   Future<void> _openAboutUs() async {
     final opened = await openGreenEarthWebsite();
     if (!mounted || opened) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('ওয়েবসাইট খোলা যাচ্ছে না')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('ওয়েবসাইট খোলা যাচ্ছে না')));
   }
 
   @override
@@ -92,6 +93,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
     final auth = context.watch<AuthProvider>();
 
     return Scaffold(
+      bottomNavigationBar: const RoleBottomNavigation(
+        role: AppRole.student,
+        selectedIndex: 4,
+      ),
       appBar: AppBar(
         title: const Text('প্রোফাইল সম্পাদনা'),
         actions: [
@@ -228,9 +233,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
             EduCard(
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => const PackagesScreen(),
-                ),
+                MaterialPageRoute(builder: (_) => const PackagesScreen()),
               ),
               padding: const EdgeInsets.all(16),
               child: Row(

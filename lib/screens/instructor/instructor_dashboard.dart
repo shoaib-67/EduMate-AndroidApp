@@ -7,18 +7,22 @@ import '../../models/user.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/my_bug_reports.dart';
+import '../../widgets/role_bottom_navigation.dart';
 import '../../utils/external_links.dart';
 import 'course_content_screen.dart';
+import 'instructor_exams_screen.dart';
 
 class InstructorDashboard extends StatefulWidget {
-  const InstructorDashboard({super.key});
+  const InstructorDashboard({super.key, this.initialTab = 0});
+
+  final int initialTab;
 
   @override
   State<InstructorDashboard> createState() => _InstructorDashboardState();
 }
 
 class _InstructorDashboardState extends State<InstructorDashboard> {
-  int _currentIndex = 0;
+  late int _currentIndex;
   TextEditingController? _nameCtrl;
   TextEditingController? _phoneCtrl;
   TextEditingController? _institutionCtrl;
@@ -33,9 +37,13 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialTab;
     _initializeProfileControllers(context.read<AuthProvider>().user);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<InstructorProvider>().loadDashboard();
+      if (_currentIndex == 3) {
+        context.read<InstructorProvider>().loadMyBugReports();
+      }
     });
   }
 
@@ -90,38 +98,15 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
             ? _buildStudentsTab(instructor)
             : _buildProfileTab(auth),
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceColor,
-          border: Border(top: BorderSide(color: const Color(0xFFDCE5EF))),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (i) {
-            if (i == 3) {
-              context.read<InstructorProvider>().loadMyBugReports();
-            }
-            setState(() => _currentIndex = i);
-          },
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard_rounded),
-              label: 'ড্যাশবোর্ড',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.menu_book_rounded),
-              label: 'কোর্স',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.people_rounded),
-              label: 'শিক্ষার্থী',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_rounded),
-              label: 'প্রোফাইল',
-            ),
-          ],
-        ),
+      bottomNavigationBar: RoleBottomNavigation(
+        role: AppRole.instructor,
+        selectedIndex: _currentIndex,
+        onTap: (i) {
+          if (i == 3) {
+            context.read<InstructorProvider>().loadMyBugReports();
+          }
+          setState(() => _currentIndex = i);
+        },
       ),
     );
   }
@@ -210,23 +195,11 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
             ),
             const SizedBox(height: 12),
             _quickAction(
-              Icons.add_circle_rounded,
-              'নতুন কোর্স তৈরি',
-              'কোর্স কনটেন্ট যোগ করুন',
-              AppTheme.primaryColor,
-              () {
-                setState(() => _currentIndex = 1);
-              },
-            ),
-            const SizedBox(height: 10),
-            _quickAction(
-              Icons.assignment_add,
+              Icons.quiz_rounded,
               'পরীক্ষা তৈরি',
-              'নতুন মক টেস্ট সেট করুন',
+              'কোর্স নির্বাচন করে MCQ পরীক্ষা প্রকাশ করুন',
               AppTheme.accentTeal,
-              () {
-                Navigator.of(context).pushNamed('/instructor/create-exam');
-              },
+              () => Navigator.of(context).pushNamed('/instructor/create-exam'),
             ),
             const SizedBox(height: 10),
             _quickAction(
@@ -309,14 +282,6 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
                   style: Theme.of(context).textTheme.headlineLarge,
                 ),
               ),
-              IconButton(
-                onPressed: () => _showCreateCourseDialog(),
-                icon: const Icon(
-                  Icons.add_circle_rounded,
-                  color: AppTheme.primaryColor,
-                  size: 28,
-                ),
-              ),
             ],
           ),
         ),
@@ -327,7 +292,7 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
               ? const EmptyState(
                   icon: Icons.menu_book_rounded,
                   title: 'কোনো কোর্স নেই',
-                  subtitle: 'নতুন কোর্স তৈরি করুন',
+                  subtitle: 'অ্যাডমিন কোর্স অ্যাসাইন করলে এখানে দেখা যাবে',
                 )
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -340,11 +305,12 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
                         onTap: course.id == null
                             ? null
                             : () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        InstructorCourseContentScreen(course: course),
+                                MaterialPageRoute(
+                                  builder: (_) => InstructorCourseContentScreen(
+                                    course: course,
                                   ),
                                 ),
+                              ),
                         padding: const EdgeInsets.all(16),
                         child: Row(
                           children: [
@@ -381,28 +347,17 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
                                 ],
                               ),
                             ),
-                            PopupMenuButton(
-                              icon: const Icon(
-                                Icons.more_vert,
-                                color: AppTheme.textMuted,
+                            if (course.id != null)
+                              IconButton(
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        InstructorExamsScreen(course: course),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.quiz_outlined),
+                                tooltip: 'কোর্সের পরীক্ষা তৈরি ও পরিচালনা',
                               ),
-                              color: AppTheme.cardColor,
-                              itemBuilder: (_) => [
-                                const PopupMenuItem(
-                                  value: 'edit',
-                                  child: Text('সম্পাদনা'),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'delete',
-                                  child: Text('মুছুন'),
-                                ),
-                              ],
-                              onSelected: (val) {
-                                if (val == 'delete' && course.id != null) {
-                                  instructor.deleteCourse(course.id!);
-                                }
-                              },
-                            ),
                           ],
                         ),
                       ),
@@ -411,88 +366,6 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
                 ),
         ),
       ],
-    );
-  }
-
-  void _showCreateCourseDialog() {
-    final titleCtrl = TextEditingController();
-    final descCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        child: Padding(
-        padding: EdgeInsets.only(
-          left: 24,
-          right: 24,
-          top: 24,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppTheme.textMuted,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text('নতুন কোর্স', style: Theme.of(ctx).textTheme.headlineMedium),
-            const SizedBox(height: 20),
-            TextFormField(
-              controller: titleCtrl,
-              decoration: const InputDecoration(
-                labelText: 'কোর্সের নাম',
-                hintText: 'কোর্সের শিরোনাম',
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: descCtrl,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'বিবরণ',
-                hintText: 'কোর্সের বিবরণ',
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: EduButton(
-                text: 'তৈরি করুন',
-                icon: Icons.add_rounded,
-                onPressed: () async {
-                  if (titleCtrl.text.isNotEmpty) {
-                    final instructor = context.read<InstructorProvider>();
-                    final success = await instructor.createCourse({
-                      'title': titleCtrl.text,
-                      'description': descCtrl.text,
-                    });
-                    if (!ctx.mounted) return;
-                    if (success) {
-                      Navigator.pop(ctx);
-                    } else {
-                      ScaffoldMessenger.of(ctx).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            instructor.error ?? 'কোর্স তৈরি করা যায়নি',
-                          ),
-                        ),
-                      );
-                    }
-                  }
-                },
-              ),
-            ),
-          ],
-        ),
-        ),
-      ),
     );
   }
 
@@ -727,9 +600,8 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
           ),
           const SizedBox(height: 16),
           EduCard(
-            onTap: () => Navigator.of(context).pushNamed(
-              '/instructor/report-bug',
-            ),
+            onTap: () =>
+                Navigator.of(context).pushNamed('/instructor/report-bug'),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [

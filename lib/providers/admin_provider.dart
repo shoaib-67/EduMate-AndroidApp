@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/user.dart';
+import '../models/course.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../models/package_plan.dart';
@@ -17,6 +18,10 @@ class AdminProvider extends ChangeNotifier {
   bool _isUsersLoading = false;
   bool _usersLoaded = false;
   String? _usersError;
+  List<Course> _courses = [];
+  bool _isCoursesLoading = false;
+  bool _coursesLoaded = false;
+  String? _coursesError;
   Map<String, dynamic>? _reportsData;
   bool _isReportsLoading = false;
   bool _reportsLoaded = false;
@@ -35,6 +40,10 @@ class AdminProvider extends ChangeNotifier {
   bool get isUsersLoading => _isUsersLoading;
   bool get usersLoaded => _usersLoaded;
   String? get usersError => _usersError;
+  List<Course> get courses => _courses;
+  bool get isCoursesLoading => _isCoursesLoading;
+  bool get coursesLoaded => _coursesLoaded;
+  String? get coursesError => _coursesError;
   Map<String, dynamic>? get reportsData => _reportsData;
   bool get isReportsLoading => _isReportsLoading;
   bool get reportsLoaded => _reportsLoaded;
@@ -90,6 +99,68 @@ class AdminProvider extends ChangeNotifier {
     if (response.success) {
       await loadUsers();
     }
+    return response;
+  }
+
+  Future<ApiResponse> createCourse(Map<String, dynamic> data) async {
+    final response = await _service.createCourse(data);
+    if (response.success) {
+      await loadCourses();
+      await loadDashboard();
+    }
+    return response;
+  }
+
+  Future<void> loadCourses() async {
+    _isCoursesLoading = true;
+    _coursesError = null;
+    notifyListeners();
+    try {
+      _courses = await _service.getCourses();
+    } catch (error) {
+      _courses = [];
+      _coursesError = error.toString().replaceFirst('Exception: ', '');
+    } finally {
+      _coursesLoaded = true;
+      _isCoursesLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<ApiResponse> updateCourse(int id, Map<String, dynamic> data) async {
+    final response = await _service.updateCourse(id, data);
+    if (response.success) await loadCourses();
+    return response;
+  }
+
+  Future<ApiResponse> deleteCourse(int id) async {
+    final response = await _service.deleteCourse(id);
+    if (response.success) {
+      await loadCourses();
+      await loadDashboard();
+    }
+    return response;
+  }
+
+  Future<List<Map<String, dynamic>>> getCourseStudents(int courseId) {
+    return _service.getCourseStudents(courseId);
+  }
+
+  Future<ApiResponse> addStudentToCourse(int courseId, int studentId) async {
+    final response = await _service.addStudentToCourse(courseId, studentId);
+    if (response.success) await loadCourses();
+    return response;
+  }
+
+  Future<ApiResponse> removeStudentFromCourse(
+    int courseId,
+    int studentId,
+  ) async {
+    final response = await _service.removeStudentFromCourse(
+      courseId,
+      studentId,
+    );
+    if (response.success) await loadCourses();
     return response;
   }
 
@@ -154,16 +225,19 @@ class AdminProvider extends ChangeNotifier {
     _packagesLoaded = true;
     notifyListeners();
   }
+
   Future<bool> createPackage(Map<String, dynamic> data) async {
     final result = await _service.createPackage(data);
     if (result.success) await loadPackages();
     return result.success;
   }
+
   Future<bool> updatePackage(int id, Map<String, dynamic> data) async {
     final result = await _service.updatePackage(id, data);
     if (result.success) await loadPackages();
     return result.success;
   }
+
   Future<bool> deletePackage(int id) async {
     final result = await _service.deletePackage(id);
     if (result.success) await loadPackages();

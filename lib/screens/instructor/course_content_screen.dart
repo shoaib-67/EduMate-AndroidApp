@@ -7,6 +7,8 @@ import '../../providers/instructor_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/external_links.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/role_bottom_navigation.dart';
+import 'instructor_exams_screen.dart';
 
 class InstructorCourseContentScreen extends StatefulWidget {
   final Course course;
@@ -33,7 +35,12 @@ class _InstructorCourseContentScreenState
     final items = await context.read<InstructorProvider>().getCourseContent(
       widget.course.id!,
     );
-    if (mounted) setState(() { _content = items; _loading = false; });
+    if (mounted) {
+      setState(() {
+        _content = items;
+        _loading = false;
+      });
+    }
   }
 
   Future<void> _addContent() async {
@@ -50,21 +57,32 @@ class _InstructorCourseContentScreenState
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(controller: title, decoration: const InputDecoration(labelText: 'শিরোনাম')),
+                TextField(
+                  controller: title,
+                  decoration: const InputDecoration(labelText: 'শিরোনাম'),
+                ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: type,
+                  initialValue: type,
                   decoration: const InputDecoration(labelText: 'ধরন'),
                   items: const [
                     DropdownMenuItem(value: 'pdf', child: Text('PDF / নোট')),
-                    DropdownMenuItem(value: 'video', child: Text('রেকর্ডেড ভিডিও')),
-                    DropdownMenuItem(value: 'exam', child: Text('পরীক্ষা')),
+                    DropdownMenuItem(
+                      value: 'video',
+                      child: Text('রেকর্ডেড ভিডিও'),
+                    ),
                     DropdownMenuItem(value: 'live', child: Text('লাইভ ক্লাস')),
                   ],
-                  onChanged: (value) => setDialogState(() => type = value ?? 'pdf'),
+                  onChanged: (value) =>
+                      setDialogState(() => type = value ?? 'pdf'),
                 ),
                 const SizedBox(height: 12),
-                TextField(controller: url, decoration: const InputDecoration(labelText: 'লিংক (PDF/ভিডিও/পরীক্ষা/লাইভ ক্লাস)')),
+                TextField(
+                  controller: url,
+                  decoration: const InputDecoration(
+                    labelText: 'লিংক (PDF/ভিডিও/পরীক্ষা/লাইভ ক্লাস)',
+                  ),
+                ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: description,
@@ -78,7 +96,10 @@ class _InstructorCourseContentScreenState
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('বাতিল')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('বাতিল'),
+            ),
             FilledButton(
               onPressed: () async {
                 if (title.text.trim().isEmpty ||
@@ -86,10 +107,14 @@ class _InstructorCourseContentScreenState
                     description.text.trim().isEmpty) {
                   return;
                 }
-                final ok = await context.read<InstructorProvider>().addCourseContent(
-                  widget.course.id!,
-                  {'title': title.text.trim(), 'type': type, 'url': url.text.trim(), 'description': description.text.trim()},
-                );
+                final ok = await context
+                    .read<InstructorProvider>()
+                    .addCourseContent(widget.course.id!, {
+                      'title': title.text.trim(),
+                      'type': type,
+                      'url': url.text.trim(),
+                      'description': description.text.trim(),
+                    });
                 if (ctx.mounted) Navigator.pop(ctx, ok);
               },
               child: const Text('যোগ করুন'),
@@ -98,16 +123,22 @@ class _InstructorCourseContentScreenState
         ),
       ),
     );
-    title.dispose(); url.dispose(); description.dispose();
+    title.dispose();
+    url.dispose();
+    description.dispose();
     if (result == true) _loadContent();
   }
 
   IconData _icon(String type) {
     switch (type) {
-      case 'video': return Icons.video_library_outlined;
-      case 'exam': return Icons.assignment_outlined;
-      case 'live': return Icons.videocam_outlined;
-      default: return Icons.picture_as_pdf_outlined;
+      case 'video':
+        return Icons.video_library_outlined;
+      case 'exam':
+        return Icons.assignment_outlined;
+      case 'live':
+        return Icons.videocam_outlined;
+      default:
+        return Icons.picture_as_pdf_outlined;
     }
   }
 
@@ -129,31 +160,78 @@ class _InstructorCourseContentScreenState
           padding: const EdgeInsets.only(bottom: 12),
           child: EduCard(
             padding: const EdgeInsets.all(16),
-            child: Row(children: [
-              Icon(_icon(item.type), color: AppTheme.primaryColor, size: 28),
-              const SizedBox(width: 14),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(item.title, style: Theme.of(context).textTheme.titleMedium),
-                Text(item.description ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall),
-              ])),
-              IconButton(onPressed: () => openExternalUrl(item.url), icon: const Icon(Icons.open_in_new)),
-              IconButton(onPressed: () async {
-                final ok = await context.read<InstructorProvider>().deleteCourseContent(widget.course.id!, item.id);
-                if (ok) _loadContent();
-              }, icon: const Icon(Icons.delete_outline)),
-            ]),
+            child: Row(
+              children: [
+                Icon(_icon(item.type), color: AppTheme.primaryColor, size: 28),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.title,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      Text(
+                        item.description ?? '',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => openExternalUrl(item.url),
+                  icon: const Icon(Icons.open_in_new),
+                ),
+                IconButton(
+                  onPressed: () async {
+                    final ok = await context
+                        .read<InstructorProvider>()
+                        .deleteCourseContent(widget.course.id!, item.id);
+                    if (ok) _loadContent();
+                  },
+                  icon: const Icon(Icons.delete_outline),
+                ),
+              ],
+            ),
           ),
         );
       },
     );
   }
 
+  Widget _examsTab() => ListView(
+    padding: const EdgeInsets.all(20),
+    children: [
+      Text('এই কোর্সের পরীক্ষা', style: Theme.of(context).textTheme.titleLarge),
+      const SizedBox(height: 8),
+      const Text(
+        'প্রকাশের সঙ্গে সঙ্গে এনরোল করা শিক্ষার্থীরা পরীক্ষা দেখতে ও দিতে পারবে।',
+      ),
+      const SizedBox(height: 16),
+      EduButton(
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => InstructorExamsScreen(course: widget.course),
+          ),
+        ),
+        icon: Icons.quiz_outlined,
+        text: 'পরীক্ষা তৈরি ও পরিচালনা',
+      ),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomNavigationBar: const RoleBottomNavigation(
+        role: AppRole.instructor,
+        selectedIndex: 1,
+      ),
       appBar: AppBar(
         title: Text(widget.course.title),
-        actions: [IconButton(onPressed: _addContent, icon: const Icon(Icons.add_circle_outline))],
       ),
       body: _loading
           ? const LoadingIndicator()
@@ -161,6 +239,24 @@ class _InstructorCourseContentScreenState
               length: 4,
               child: Column(
                 children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'কোর্স কনটেন্ট',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                        ),
+                        EduButton(
+                          text: 'কনটেন্ট যোগ করুন',
+                          icon: Icons.add_rounded,
+                          onPressed: _addContent,
+                        ),
+                      ],
+                    ),
+                  ),
                   const TabBar(
                     isScrollable: true,
                     tabs: [
@@ -175,7 +271,7 @@ class _InstructorCourseContentScreenState
                       children: [
                         _contentList('pdf'),
                         _contentList('video'),
-                        _contentList('exam'),
+                        _examsTab(),
                         _contentList('live'),
                       ],
                     ),

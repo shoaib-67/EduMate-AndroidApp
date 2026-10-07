@@ -21,6 +21,7 @@ import 'screens/student/student_profile_screen.dart';
 import 'screens/student/report_bug_screen.dart';
 import 'screens/student/test_taking_screen.dart';
 import 'screens/instructor/instructor_dashboard.dart';
+import 'screens/instructor/instructor_exams_screen.dart';
 import 'screens/admin/admin_dashboard.dart';
 import 'models/mock_test.dart';
 import 'widgets/common_widgets.dart';
@@ -83,7 +84,7 @@ class EduMateApp extends StatelessWidget {
         page = const SignupScreen();
         break;
       case '/student':
-        page = const StudentDashboard();
+        page = StudentDashboard(initialTab: settings.arguments as int? ?? 0);
         break;
       case '/student/performance':
         page = const PerformanceScreen();
@@ -105,16 +106,22 @@ class EduMateApp extends StatelessWidget {
         page = TestTakingScreen(test: test);
         break;
       case '/instructor':
-        page = const InstructorDashboard();
+        page = InstructorDashboard(initialTab: settings.arguments as int? ?? 0);
+        break;
+      case '/instructor/create-exam':
+        page = const InstructorExamCoursePickerScreen();
         break;
       case '/instructor/report-bug':
         page = const ReportBugScreen(isInstructor: true);
         break;
       case '/admin':
-        page = const AdminDashboard();
+        page = AdminDashboard(initialTab: settings.arguments as int? ?? 0);
         break;
       default:
-        page = const LoginScreen();
+        page = Scaffold(
+          appBar: AppBar(title: const Text('Page not found')),
+          body: Center(child: Text('Unknown route: ${settings.name}')),
+        );
     }
 
     return MaterialPageRoute(builder: (_) => page, settings: settings);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/course.dart';
 import '../models/course_content.dart';
+import '../services/api_service.dart';
 import '../services/instructor_service.dart';
 
 class InstructorProvider extends ChangeNotifier {
@@ -18,7 +19,6 @@ class InstructorProvider extends ChangeNotifier {
   List<dynamic> _studentResults = [];
   bool _isResultsLoading = false;
   bool _resultsLoaded = false;
-  String? _error;
   List<dynamic> _myBugReports = [];
   bool _myBugReportsLoaded = false;
 
@@ -31,7 +31,6 @@ class InstructorProvider extends ChangeNotifier {
   List<dynamic> get studentResults => _studentResults;
   bool get isResultsLoading => _isResultsLoading;
   bool get resultsLoaded => _resultsLoaded;
-  String? get error => _error;
   List<dynamic> get myBugReports => _myBugReports;
   bool get myBugReportsLoaded => _myBugReportsLoaded;
 
@@ -69,37 +68,6 @@ class InstructorProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> createCourse(Map<String, dynamic> data) async {
-    final response = await _service.createCourse(data);
-    if (response.success) {
-      await loadCourses();
-      return true;
-    }
-    _error = response.message;
-    notifyListeners();
-    return false;
-  }
-
-  Future<bool> updateCourse(int id, Map<String, dynamic> data) async {
-    final response = await _service.updateCourse(id, data);
-    if (response.success) {
-      await loadCourses();
-      return true;
-    }
-    _error = response.message;
-    notifyListeners();
-    return false;
-  }
-
-  Future<bool> deleteCourse(int id) async {
-    final response = await _service.deleteCourse(id);
-    if (response.success) {
-      await loadCourses();
-      return true;
-    }
-    return false;
-  }
-
   Future<List<CourseContent>> getCourseContent(int courseId) {
     return _service.getCourseContent(courseId);
   }
@@ -114,10 +82,21 @@ class InstructorProvider extends ChangeNotifier {
     return response.success;
   }
 
-  Future<bool> createExam(Map<String, dynamic> data) async {
-    final response = await _service.createExam(data);
-    return response.success;
-  }
+  Future<List<Map<String, dynamic>>> getCourseExams(int courseId) =>
+      _service.getCourseExams(courseId);
+
+  Future<Map<String, dynamic>> getExam(int examId) => _service.getExam(examId);
+
+  Future<ApiResponse> createExam(int courseId, Map<String, dynamic> data) =>
+      _service.createExam(courseId, data);
+
+  Future<ApiResponse> updateExam(int examId, Map<String, dynamic> data) =>
+      _service.updateExam(examId, data);
+
+  Future<ApiResponse> publishExam(int examId, bool published) =>
+      _service.publishExam(examId, published);
+
+  Future<ApiResponse> deleteExam(int examId) => _service.deleteExam(examId);
 
   Future<void> loadStudentResults() async {
     _isResultsLoading = true;

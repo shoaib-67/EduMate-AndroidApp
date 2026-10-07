@@ -6,17 +6,21 @@ import '../../providers/admin_provider.dart';
 import '../../models/user.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/role_bottom_navigation.dart';
 import '../../utils/external_links.dart';
+import 'admin_courses_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
-  const AdminDashboard({super.key});
+  const AdminDashboard({super.key, this.initialTab = 0});
+
+  final int initialTab;
 
   @override
   State<AdminDashboard> createState() => _AdminDashboardState();
 }
 
 class _AdminDashboardState extends State<AdminDashboard> {
-  int _currentIndex = 0;
+  late int _currentIndex;
   late final TextEditingController _nameCtrl;
   late final TextEditingController _phoneCtrl;
   late final TextEditingController _institutionCtrl;
@@ -32,6 +36,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialTab;
     final user = context.read<AuthProvider>().user;
     _nameCtrl = TextEditingController(text: user?.name);
     _phoneCtrl = TextEditingController(text: user?.phone ?? '');
@@ -83,42 +88,24 @@ class _AdminDashboardState extends State<AdminDashboard> {
             : _currentIndex == 1
             ? _buildUsersTab(admin)
             : _currentIndex == 2
-            ? _buildReportsTab(admin)
+            ? AdminCoursesScreen(
+                onBack: () => setState(() => _currentIndex = 0),
+              )
             : _currentIndex == 3
+            ? _buildReportsTab(admin)
+            : _currentIndex == 4
             ? _buildPackagesTab(admin)
             : _buildSettingsTab(auth),
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceColor,
-          border: Border(top: BorderSide(color: const Color(0xFFDCE5EF))),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (i) => setState(() => _currentIndex = i),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard_rounded),
-              label: 'ড্যাশবোর্ড',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.people_rounded),
-              label: 'ব্যবহারকারী',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.analytics_rounded),
-              label: 'রিপোর্ট',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.workspace_premium_rounded),
-              label: 'প্যাকেজ',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.settings_rounded),
-              label: 'সেটিংস',
-            ),
-          ],
-        ),
+      bottomNavigationBar: RoleBottomNavigation(
+        role: AppRole.admin,
+        selectedIndex: _currentIndex,
+        onTap: (i) {
+          if (i == 3) {
+            context.read<AdminProvider>().loadReports();
+          }
+          setState(() => _currentIndex = i);
+        },
       ),
     );
   }
@@ -294,8 +281,80 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ],
               ),
             ),
+            const SizedBox(height: 10),
+            _adminQuickAction(
+              Icons.menu_book_rounded,
+              'কোর্স পরিচালনা',
+              'কোর্স তৈরি, সম্পাদনা ও ইনস্ট্রাক্টর নির্ধারণ করুন',
+              AppTheme.primaryColor,
+              2,
+            ),
+            const SizedBox(height: 10),
+            _adminQuickAction(
+              Icons.analytics_rounded,
+              'রিপোর্ট',
+              'সিস্টেম রিপোর্ট এবং বাগ রিপোর্ট দেখুন',
+              AppTheme.accentTeal,
+              3,
+            ),
+            const SizedBox(height: 10),
+            _adminQuickAction(
+              Icons.workspace_premium_rounded,
+              'প্যাকেজ',
+              'প্যাকেজ যোগ বা সম্পাদনা করুন',
+              AppTheme.accentOrange,
+              4,
+            ),
+            const SizedBox(height: 10),
+            _adminQuickAction(
+              Icons.settings_rounded,
+              'সেটিংস',
+              'প্রোফাইল এবং অ্যাকাউন্ট সেটিংস',
+              AppTheme.accentPink,
+              5,
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _adminQuickAction(
+    IconData icon,
+    String title,
+    String subtitle,
+    Color color,
+    int tabIndex,
+  ) {
+    return EduCard(
+      onTap: () => setState(() => _currentIndex = tabIndex),
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withAlpha(25),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: color),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
+                Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.arrow_forward_ios_rounded,
+            size: 16,
+            color: AppTheme.textMuted,
+          ),
+        ],
       ),
     );
   }
@@ -337,11 +396,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ? const LoadingIndicator()
               : admin.users.isEmpty
               ? admin.usersError != null
-                  ? _buildUsersErrorState(admin)
-                  : const EmptyState(
-                      icon: Icons.people_rounded,
-                      title: 'কোনো ব্যবহারকারী নেই',
-                    )
+                    ? _buildUsersErrorState(admin)
+                    : const EmptyState(
+                        icon: Icons.people_rounded,
+                        title: 'কোনো ব্যবহারকারী নেই',
+                      )
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   itemCount: admin.users.length,
@@ -449,7 +508,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off_rounded, size: 48, color: AppTheme.accentOrange),
+            const Icon(
+              Icons.cloud_off_rounded,
+              size: 48,
+              color: AppTheme.accentOrange,
+            ),
             const SizedBox(height: 12),
             const Text('ব্যবহারকারীদের তথ্য লোড করা যায়নি'),
             const SizedBox(height: 8),
@@ -641,7 +704,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     institutionCtrl.dispose();
   }
 
-  void _showUserDetailsDialog(user) {
+  void _showUserDetailsDialog(User user) {
     final roleColor = _roleColor(user.role);
     final roleName = _roleName(user.role);
     final joinDate = user.createdAt != null
@@ -715,11 +778,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ? user.institution!
                   : 'যোগ করা হয়নি',
             ),
-            _userDetailRow(
-              Icons.calendar_today_outlined,
-              'যোগদান',
-              joinDate,
-            ),
+            _userDetailRow(Icons.calendar_today_outlined, 'যোগদান', joinDate),
             const SizedBox(height: 8),
           ],
         ),
@@ -768,8 +827,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   void _showBugReportsDialog(AdminProvider admin) {
     final reports = List<Map<String, dynamic>>.from(
-      ((admin.reportsData?['bug_reports'] as List<dynamic>?) ?? [])
-          .map((item) => Map<String, dynamic>.from(item as Map)),
+      ((admin.reportsData?['bug_reports'] as List<dynamic>?) ?? []).map(
+        (item) => Map<String, dynamic>.from(item as Map),
+      ),
     );
     showDialog(
       context: context,
@@ -783,7 +843,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 : ListView.separated(
                     shrinkWrap: true,
                     itemCount: reports.length,
-                    separatorBuilder: (_, __) => const Divider(height: 24),
+                    separatorBuilder: (_, _) => const Divider(height: 24),
                     itemBuilder: (_, index) {
                       final report = reports[index];
                       final id = report['id'] as int?;
@@ -793,7 +853,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         children: [
                           Text(
                             report['title'] as String? ?? 'Untitled report',
-                            style: Theme.of(dialogContext).textTheme.titleMedium,
+                            style: Theme.of(dialogContext)
+                                .textTheme
+                                .titleMedium,
                           ),
                           const SizedBox(height: 6),
                           Text(report['description'] as String? ?? ''),
@@ -807,9 +869,33 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           Wrap(
                             spacing: 4,
                             children: [
-                              _statusAction('Unsolved', 'open', status, id, admin, setDialogState, report),
-                              _statusAction('Working', 'in_progress', status, id, admin, setDialogState, report),
-                              _statusAction('Solved', 'resolved', status, id, admin, setDialogState, report),
+                              _statusAction(
+                                'Unsolved',
+                                'open',
+                                status,
+                                id,
+                                admin,
+                                setDialogState,
+                                report,
+                              ),
+                              _statusAction(
+                                'Working',
+                                'in_progress',
+                                status,
+                                id,
+                                admin,
+                                setDialogState,
+                                report,
+                              ),
+                              _statusAction(
+                                'Solved',
+                                'resolved',
+                                status,
+                                id,
+                                admin,
+                                setDialogState,
+                                report,
+                              ),
                             ],
                           ),
                         ],
@@ -850,62 +936,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
         backgroundColor: selected ? AppTheme.primaryColor.withAlpha(30) : null,
       ),
       child: Text(label),
-    );
-  }
-
-  void _showBugReports(AdminProvider admin) {
-    final reports = (admin.reportsData?['bug_reports'] as List<dynamic>?) ?? [];
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.bug_report_rounded, color: AppTheme.accentOrange),
-            SizedBox(width: 10),
-            Text('Bug Reports'),
-          ],
-        ),
-        content: SizedBox(
-          width: 560,
-          child: reports.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Text('No bug reports submitted yet.'),
-                )
-              : ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: reports.length,
-                  separatorBuilder: (_, __) => const Divider(height: 24),
-                  itemBuilder: (_, index) {
-                    final report = reports[index] as Map<String, dynamic>;
-                    final reporter = report['reporter_name'] ?? 'Unknown user';
-                    final role = report['reporter_role'] ?? 'user';
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          report['title'] as String? ?? 'Untitled report',
-                          style: Theme.of(ctx).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(report['description'] as String? ?? ''),
-                        const SizedBox(height: 10),
-                        Text(
-                          '$reporter • $role • ${report['status'] ?? 'open'}',
-                          style: Theme.of(ctx).textTheme.bodySmall,
-                        ),
-                      ],
-                    );
-                  },
-                ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -982,14 +1012,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'মোট টেস্ট সম্পন্ন',
+                                'মোট তৈরি পরীক্ষা',
                                 style: Theme.of(context).textTheme.titleMedium,
                               ),
                             ],
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            '${admin.reportsData?['total_tests_completed'] ?? 0}',
+                            '${admin.reportsData?['total_exams_created'] ??
+                                admin.dashboardData?['total_exams_created'] ??
+                                0}',
                             style: Theme.of(context).textTheme.displayMedium
                                 ?.copyWith(color: AppTheme.primaryColor),
                           ),
@@ -1037,12 +1069,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          const Icon(Icons.error_outline_rounded, size: 42, color: AppTheme.accentOrange),
+          const Icon(
+            Icons.error_outline_rounded,
+            size: 42,
+            color: AppTheme.accentOrange,
+          ),
           const SizedBox(height: 12),
           Text(admin.reportsError!, textAlign: TextAlign.center),
           const SizedBox(height: 12),
           OutlinedButton.icon(
-            onPressed: admin.isReportsLoading ? null : () => admin.loadReports(),
+            onPressed: admin.isReportsLoading
+                ? null
+                : () => admin.loadReports(),
             icon: const Icon(Icons.refresh_rounded),
             label: const Text('Retry'),
           ),
@@ -1059,14 +1097,32 @@ class _AdminDashboardState extends State<AdminDashboard> {
       children: [
         Padding(
           padding: const EdgeInsets.all(20),
-          child: Row(children: [
-            Expanded(child: Text('প্যাকেজ ম্যানেজমেন্ট', style: Theme.of(context).textTheme.headlineLarge)),
-            IconButton(onPressed: () => _showPackageDialog(admin), icon: const Icon(Icons.add_circle_rounded, color: AppTheme.primaryColor, size: 28)),
-          ]),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'প্যাকেজ ম্যানেজমেন্ট',
+                  style: Theme.of(context).textTheme.headlineLarge,
+                ),
+              ),
+              IconButton(
+                onPressed: () => _showPackageDialog(admin),
+                icon: const Icon(
+                  Icons.add_circle_rounded,
+                  color: AppTheme.primaryColor,
+                  size: 28,
+                ),
+              ),
+            ],
+          ),
         ),
         Expanded(
           child: admin.packages.isEmpty
-              ? const EmptyState(icon: Icons.workspace_premium_outlined, title: 'কোনো প্যাকেজ নেই', subtitle: 'উপরে + চাপ দিয়ে প্যাকেজ যোগ করুন')
+              ? const EmptyState(
+                  icon: Icons.workspace_premium_outlined,
+                  title: 'কোনো প্যাকেজ নেই',
+                  subtitle: 'উপরে + চাপ দিয়ে প্যাকেজ যোগ করুন',
+                )
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   itemCount: admin.packages.length,
@@ -1076,15 +1132,45 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       padding: const EdgeInsets.only(bottom: 12),
                       child: EduCard(
                         padding: const EdgeInsets.all(16),
-                        child: Row(children: [
-                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(plan.title, style: Theme.of(context).textTheme.titleMedium),
-                            Text('${plan.price} ${plan.period}', style: Theme.of(context).textTheme.bodyMedium),
-                            Text('${plan.features.length}টি সুবিধা', style: Theme.of(context).textTheme.bodySmall),
-                          ])),
-                            IconButton(onPressed: () => _showPackageDialog(admin, plan), icon: const Icon(Icons.edit_outlined)),
-                            IconButton(onPressed: () async { await admin.deletePackage(plan.id); }, icon: const Icon(Icons.delete_outline)),
-                        ]),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    plan.title,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium,
+                                  ),
+                                  Text(
+                                    '${plan.price} ${plan.period}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium,
+                                  ),
+                                  Text(
+                                    '${plan.features.length}টি সুবিধা',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => _showPackageDialog(admin, plan),
+                              icon: const Icon(Icons.edit_outlined),
+                            ),
+                            IconButton(
+                              onPressed: () async {
+                                await admin.deletePackage(plan.id);
+                              },
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -1094,40 +1180,86 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  Future<void> _showPackageDialog(AdminProvider admin, [dynamic existing]) async {
+  Future<void> _showPackageDialog(
+    AdminProvider admin, [
+    dynamic existing,
+  ]) async {
     final title = TextEditingController(text: existing?.title ?? '');
     final subtitle = TextEditingController(text: existing?.subtitle ?? '');
     final price = TextEditingController(text: existing?.price ?? '');
     final period = TextEditingController(text: existing?.period ?? '');
-    final features = TextEditingController(text: existing == null ? '' : existing.features.join(', '));
+    final features = TextEditingController(
+      text: existing == null ? '' : existing.features.join(', '),
+    );
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('নতুন প্যাকেজ যোগ করুন'),
-        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: title, decoration: const InputDecoration(labelText: 'প্যাকেজের নাম')),
-          TextField(controller: subtitle, decoration: const InputDecoration(labelText: 'সংক্ষিপ্ত বিবরণ')),
-          TextField(controller: price, decoration: const InputDecoration(labelText: 'মূল্য')),
-          TextField(controller: period, decoration: const InputDecoration(labelText: 'মেয়াদ')),
-          TextField(controller: features, decoration: const InputDecoration(labelText: 'সুবিধা (কমা দিয়ে লিখুন)')),
-        ])),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: title,
+                decoration: const InputDecoration(labelText: 'প্যাকেজের নাম'),
+              ),
+              TextField(
+                controller: subtitle,
+                decoration: const InputDecoration(labelText: 'সংক্ষিপ্ত বিবরণ'),
+              ),
+              TextField(
+                controller: price,
+                decoration: const InputDecoration(labelText: 'মূল্য'),
+              ),
+              TextField(
+                controller: period,
+                decoration: const InputDecoration(labelText: 'মেয়াদ'),
+              ),
+              TextField(
+                controller: features,
+                decoration: const InputDecoration(
+                  labelText: 'সুবিধা (কমা দিয়ে লিখুন)',
+                ),
+              ),
+            ],
+          ),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('বাতিল')),
-          FilledButton(onPressed: () async {
-            if (title.text.trim().isEmpty || price.text.trim().isEmpty) return;
-            final data = {
-              'title': title.text.trim(), 'subtitle': subtitle.text.trim(), 'price': price.text.trim(),
-              'period': period.text.trim(), 'features': features.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
-            };
-            final saved = existing == null
-                ? await admin.createPackage(data)
-                : await admin.updatePackage(existing.id, data);
-            if (ctx.mounted) Navigator.pop(ctx, saved);
-          }, child: const Text('সংরক্ষণ')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('বাতিল'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (title.text.trim().isEmpty || price.text.trim().isEmpty) {
+                return;
+              }
+              final data = {
+                'title': title.text.trim(),
+                'subtitle': subtitle.text.trim(),
+                'price': price.text.trim(),
+                'period': period.text.trim(),
+                'features': features.text
+                    .split(',')
+                    .map((e) => e.trim())
+                    .where((e) => e.isNotEmpty)
+                    .toList(),
+              };
+              final saved = existing == null
+                  ? await admin.createPackage(data)
+                  : await admin.updatePackage(existing.id, data);
+              if (ctx.mounted) Navigator.pop(ctx, saved);
+            },
+            child: const Text('সংরক্ষণ'),
+          ),
         ],
       ),
     );
-    title.dispose(); subtitle.dispose(); price.dispose(); period.dispose(); features.dispose();
+    title.dispose();
+    subtitle.dispose();
+    price.dispose();
+    period.dispose();
+    features.dispose();
     if (ok == true && mounted) setState(() {});
   }
 
@@ -1140,7 +1272,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           Row(
             children: [
               IconButton(
-                onPressed: () => setState(() => _currentIndex = 2),
+                onPressed: () => setState(() => _currentIndex = 3),
                 icon: const Icon(Icons.arrow_back_rounded, size: 20),
                 tooltip: 'আগের পেজে ফিরুন',
               ),
@@ -1278,7 +1410,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
     _institutionCtrl.value = TextEditingValue(
       text: user?.institution ?? '',
-      selection: TextSelection.collapsed(offset: (user?.institution ?? '').length),
+      selection: TextSelection.collapsed(
+        offset: (user?.institution ?? '').length,
+      ),
     );
   }
 

@@ -7,6 +7,7 @@ import '../../models/mock_test.dart';
 import '../../providers/student_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/role_bottom_navigation.dart';
 
 class TestTakingScreen extends StatefulWidget {
   final MockTest test;
@@ -23,6 +24,8 @@ class _TestTakingScreenState extends State<TestTakingScreen> {
   late int _remainingSeconds;
   Timer? _timer;
   bool _isSubmitted = false;
+  bool _isSubmitting = false;
+  Map<String, dynamic>? _result;
 
   @override
   void initState() {
@@ -49,22 +52,41 @@ class _TestTakingScreenState extends State<TestTakingScreen> {
   }
 
   Future<void> _submitTest() async {
+    if (_isSubmitting || _isSubmitted) return;
+    _isSubmitting = true;
     _timer?.cancel();
     final testId = widget.test.id;
     if (testId != null) {
-      final submitted = await context.read<StudentProvider>().submitTest(
+      final questions = widget.test.questions ?? [];
+      final answersById = <int, int>{};
+      for (var i = 0; i < questions.length; i++) {
+        final id = questions[i].id;
+        if (id != null && _answers.containsKey(i)) {
+          final chosen = _answers[i]!;
+          answersById[id] = questions[i].optionOrder?[chosen] ?? chosen;
+        }
+      }
+      final response = await context.read<StudentProvider>().submitTest(
         testId,
-        _answers,
+        answersById,
       );
-      if (!submitted && mounted) {
+      if (!mounted) return;
+      if (!response.success) {
+        _isSubmitting = false;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('পরীক্ষা জমা দেওয়া যায়নি')),
+          SnackBar(
+            content: Text(response.message ?? 'পরীক্ষা জমা দেওয়া যায়নি'),
+          ),
         );
         return;
       }
+      _result = Map<String, dynamic>.from(response.data as Map);
     }
     if (!mounted) return;
-    setState(() => _isSubmitted = true);
+    setState(() {
+      _isSubmitted = true;
+      _isSubmitting = false;
+    });
   }
 
   String get _formattedTime {
@@ -83,6 +105,10 @@ class _TestTakingScreenState extends State<TestTakingScreen> {
 
     if (questions.isEmpty) {
       return Scaffold(
+        bottomNavigationBar: const RoleBottomNavigation(
+          role: AppRole.student,
+          selectedIndex: 2,
+        ),
         appBar: AppBar(title: Text(widget.test.title)),
         body: const EmptyState(
           icon: Icons.quiz_rounded,
@@ -94,6 +120,12 @@ class _TestTakingScreenState extends State<TestTakingScreen> {
     final question = questions[_currentQuestion];
 
     return Scaffold(
+      bottomNavigationBar: const RoleBottomNavigation(
+        role: AppRole.student,
+        selectedIndex: 2,
+        confirmMessage:
+            'Your answers will not be submitted if you leave this exam.',
+      ),
       appBar: AppBar(
         title: Text(widget.test.title),
         actions: [
@@ -308,15 +340,14 @@ class _TestTakingScreenState extends State<TestTakingScreen> {
   }
 
   Widget _buildResultView(List<Question> questions) {
-    int correct = 0;
-    for (var i = 0; i < questions.length; i++) {
-      if (_answers[i] == questions[i].correctOption) correct++;
-    }
-    final percentage = questions.isNotEmpty
-        ? (correct / questions.length * 100)
-        : 0.0;
+    final correct = (_result?['correct_answers'] as num?)?.toInt() ?? 0;
+    final percentage = (_result?['score'] as num?)?.toDouble() ?? 0.0;
 
     return Scaffold(
+      bottomNavigationBar: const RoleBottomNavigation(
+        role: AppRole.student,
+        selectedIndex: 2,
+      ),
       appBar: AppBar(title: const Text('ফলাফল')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -351,6 +382,11 @@ class _TestTakingScreenState extends State<TestTakingScreen> {
               ),
             ),
             const SizedBox(height: 24),
+            Text(
+              'Marks: ${_result?['earned_marks'] ?? 0} / ${_result?['total_marks'] ?? 0}',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
             Text(
               percentage >= 60 ? 'অভিনন্দন! 🎉' : 'আরও চেষ্টা করুন!',
               style: Theme.of(context).textTheme.headlineMedium,
