@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-class EduCard extends StatelessWidget {
+class EduCard extends StatefulWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
@@ -21,72 +21,51 @@ class EduCard extends StatelessWidget {
   });
 
   @override
+  State<EduCard> createState() => _EduCardState();
+}
+
+class _EduCardState extends State<EduCard> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final card = Container(
-      margin: margin,
+    final radius = BorderRadius.circular(widget.borderRadius);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      margin: widget.margin,
+      padding: EdgeInsets.all(widget.hasGradientBorder ? 1.5 : 0),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
-        borderRadius: BorderRadius.circular(borderRadius),
-        border: hasGradientBorder
+        color: widget.hasGradientBorder ? null : AppTheme.cardColor,
+        gradient: widget.hasGradientBorder ? AppTheme.primaryGradient : null,
+        borderRadius: radius,
+        border: widget.hasGradientBorder
             ? null
-            : Border.all(color: const Color(0xFFDCE5EF), width: 1),
-        gradient: hasGradientBorder ? null : null,
+            : Border.all(color: const Color(0xFFDCE5EF)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(18),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: AppTheme.primaryDark.withAlpha(_hovered ? 30 : 14),
+            blurRadius: _hovered ? 20 : 12,
+            offset: Offset(0, _hovered ? 8 : 4),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(borderRadius),
-            child: Padding(
-              padding: padding ?? const EdgeInsets.all(16),
-              child: child,
-            ),
+      child: Material(
+        color: AppTheme.cardColor,
+        borderRadius: radius,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: widget.onTap,
+          onHover: widget.onTap == null
+              ? null
+              : (value) => setState(() => _hovered = value),
+          child: Padding(
+            padding: widget.padding ?? const EdgeInsets.all(16),
+            child: widget.child,
           ),
         ),
       ),
     );
-
-    if (hasGradientBorder) {
-      return Container(
-        margin: margin,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(borderRadius + 1),
-          gradient: AppTheme.primaryGradient,
-        ),
-        child: Container(
-          margin: const EdgeInsets.all(1.5),
-          decoration: BoxDecoration(
-            color: AppTheme.cardColor,
-            borderRadius: BorderRadius.circular(borderRadius),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(borderRadius),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onTap,
-                borderRadius: BorderRadius.circular(borderRadius),
-                child: Padding(
-                  padding: padding ?? const EdgeInsets.all(16),
-                  child: child,
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return card;
   }
 }
 
@@ -172,12 +151,12 @@ class EduButton extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         if (isLoading) ...[
-          const SizedBox(
+          SizedBox(
             width: 18,
             height: 18,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: Colors.white,
+              color: AppTheme.primaryColor,
             ),
           ),
           const SizedBox(width: 10),
@@ -192,22 +171,7 @@ class EduButton extends StatelessWidget {
 
     final button = isOutlined
         ? OutlinedButton(onPressed: isLoading ? null : onPressed, child: child)
-        : Container(
-            decoration: BoxDecoration(
-              gradient: onPressed != null && !isLoading
-                  ? AppTheme.primaryGradient
-                  : null,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: ElevatedButton(
-              onPressed: isLoading ? null : onPressed,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-              ),
-              child: child,
-            ),
-          );
+        : FilledButton(onPressed: isLoading ? null : onPressed, child: child);
 
     if (width != null) {
       return SizedBox(width: width, child: button);

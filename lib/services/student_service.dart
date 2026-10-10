@@ -33,7 +33,10 @@ class StudentService {
 
   Future<List<PackagePlan>> getPackages() async {
     final response = await _api.get(ApiConfig.packages);
-    if (response.success && response.data is Map) {
+    if (!response.success) {
+      throw Exception(response.message ?? 'প্যাকেজ লোড করা যায়নি');
+    }
+    if (response.data is Map) {
       return ((response.data['packages'] as List<dynamic>?) ?? [])
           .map((p) => PackagePlan.fromJson(p as Map<String, dynamic>))
           .toList();
@@ -51,6 +54,13 @@ class StudentService {
       return data;
     }
     return null;
+  }
+
+  Future<ApiResponse> rateCourse(int courseId, int rating) {
+    return _api.post(
+      '${ApiConfig.studentCourses}/$courseId/rating',
+      body: {'rating': rating},
+    );
   }
 
   Future<List<MockTest>> getTests() async {
@@ -111,6 +121,14 @@ class StudentService {
     return [];
   }
 
+  Future<Discussion?> getDiscussion(int id) async {
+    final response = await _api.get('${ApiConfig.discussions}/$id');
+    if (response.success && response.data is Map<String, dynamic>) {
+      return Discussion.fromJson(response.data as Map<String, dynamic>);
+    }
+    return null;
+  }
+
   Future<ApiResponse> createDiscussion(String title, String content) async {
     return await _api.post(
       ApiConfig.discussions,
@@ -141,16 +159,6 @@ class StudentService {
       return (response.data['reports'] as List<dynamic>? ?? []);
     }
     return [];
-  }
-
-  Future<Map<String, dynamic>?> getProfile() async {
-    final response = await _api.get(ApiConfig.studentProfile);
-    if (response.success) return response.data as Map<String, dynamic>?;
-    return null;
-  }
-
-  Future<ApiResponse> updateProfile(Map<String, dynamic> data) async {
-    return await _api.put(ApiConfig.studentProfile, body: data);
   }
 }
 

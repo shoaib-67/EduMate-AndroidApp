@@ -288,7 +288,7 @@ class _InstructorExamsScreenState extends State<InstructorExamsScreen> {
                   const SizedBox(height: 12),
                   if (exams.isEmpty)
                     const EmptyState(
-                      icon: Icons.quiz_outlined,
+                      icon: Icons.assignment_outlined,
                       title: 'এখনও কোনো পরীক্ষা নেই',
                       subtitle:
                           'এই কোর্সের জন্য একটি পরীক্ষা তৈরি করে MCQ যোগ করুন।',
@@ -838,7 +838,7 @@ class _ExamEditorState extends State<_ExamEditor> {
         child: Column(
           children: [
             const Icon(
-              Icons.quiz_outlined,
+              Icons.assignment_outlined,
               size: 42,
               color: AppTheme.textMuted,
             ),
@@ -1068,7 +1068,7 @@ class _ExamEditorState extends State<_ExamEditor> {
     const labels = ['তথ্য', 'প্রশ্ন', 'পর্যালোচনা'];
     const icons = [
       Icons.tune_rounded,
-      Icons.quiz_outlined,
+      Icons.assignment_outlined,
       Icons.visibility_outlined,
     ];
     return Container(

@@ -7,8 +7,98 @@ import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/role_bottom_navigation.dart';
 
-class PackagesScreen extends StatelessWidget {
+class PackagesScreen extends StatefulWidget {
   const PackagesScreen({super.key});
+
+  @override
+  State<PackagesScreen> createState() => _PackagesScreenState();
+}
+
+class _PackagesScreenState extends State<PackagesScreen> {
+  late Future<List<PackagePlan>> _packages;
+
+  @override
+  void initState() {
+    super.initState();
+    _packages = context.read<StudentProvider>().getPackages();
+  }
+
+  Future<void> _refresh() async {
+    final next = context.read<StudentProvider>().getPackages();
+    setState(() {
+      _packages = next;
+    });
+    try {
+      await next;
+    } catch (_) {
+      // FutureBuilder presents the error with a retry action.
+    }
+  }
+
+  void _showDetails(PackagePlan plan) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * .8,
+          ),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    plan.title,
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    plan.subtitle,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '${plan.price}${plan.period}',
+                    style: Theme.of(context).textTheme.headlineLarge
+                        ?.copyWith(color: AppTheme.primaryColor),
+                  ),
+                  const SizedBox(height: 20),
+                  for (final feature in plan.features)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            size: 20,
+                            color: AppTheme.accentTeal,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(child: Text(feature)),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('ঠিক আছে'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,93 +107,69 @@ class PackagesScreen extends StatelessWidget {
         role: AppRole.student,
         selectedIndex: 0,
       ),
-      appBar: AppBar(title: const Text('ফিচার প্যাকেজ')),
+      appBar: AppBar(
+        title: const Text('ফিচার প্যাকেজ'),
+        actions: [
+          IconButton(
+            tooltip: 'প্যাকেজ রিফ্রেশ করুন',
+            onPressed: _refresh,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      ),
       body: FutureBuilder<List<PackagePlan>>(
-        future: context.read<StudentProvider>().getPackages(),
+        future: _packages,
         builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const LoadingIndicator(message: 'প্যাকেজ লোড হচ্ছে...');
+          }
+          if (snapshot.hasError) {
+            return EmptyState(
+              icon: Icons.wifi_off_rounded,
+              title: 'প্যাকেজ লোড করা যায়নি',
+              subtitle: '${snapshot.error}',
+              actionText: 'আবার চেষ্টা করুন',
+              onAction: _refresh,
+            );
+          }
           final managedPackages = snapshot.data ?? [];
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          if (managedPackages.isEmpty) {
+            return EmptyState(
+              icon: Icons.inventory_2_outlined,
+              title: 'এখন কোনো প্যাকেজ নেই',
+              subtitle: 'নতুন প্যাকেজ যোগ হলে এখানে দেখা যাবে।',
+              actionText: 'রিফ্রেশ করুন',
+              onAction: _refresh,
+            );
+          }
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView(
+              padding: const EdgeInsets.all(20),
               children: [
-                Text(
-                  'আপনার প্রস্তুতির জন্য\nউপযুক্ত প্ল্যান বেছে নিন',
-                  style: Theme.of(context).textTheme.headlineMedium,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'আপনার প্রস্তুতির জন্য\nউপযুক্ত প্ল্যান দেখুন',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'উপলব্ধ প্যাকেজগুলোর সুবিধা ও মূল্য দেখে নিন।',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 24),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'শুরু করার জন্য ফ্রি, ধারাবাহিক অনুশীলনের জন্য ১ মাস, আর গভীর প্রস্তুতির জন্য ৩ মাস।',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 24),
-
                 ...managedPackages.map(
                   (plan) => Padding(
                     padding: const EdgeInsets.only(bottom: 16),
                     child: _PlanCard(
-                      title: plan.title,
-                      subtitle: plan.subtitle,
-                      price: plan.price,
-                      period: plan.period,
-                      features: plan.features,
-                      buttonText: 'প্যাকেজ নিন',
-                      color: AppTheme.primaryColor,
-                      isPopular: false,
-                      onTap: () {},
+                      plan: plan,
+                      onTap: () => _showDetails(plan),
                     ),
                   ),
-                ),
-
-                // Free plan
-                _PlanCard(
-                  title: 'ফ্রি প্ল্যান',
-                  subtitle: 'শুরু করুন বিনামূল্যে',
-                  price: '৳০',
-                  period: '',
-                  features: const [
-                    'বেসিক মক টেস্ট অ্যাক্সেস',
-                    'নির্বাচিত ফ্রি PDF নোট',
-                    'দৈনিক স্টাডি রিমাইন্ডার',
-                  ],
-                  buttonText: 'ফ্রি শুরু করুন',
-                  color: AppTheme.textSecondary,
-                  onTap: () {},
-                ),
-                const SizedBox(height: 16),
-
-                // 1 Month Plan
-                _PlanCard(
-                  title: '১ মাসের প্ল্যান',
-                  subtitle: 'দ্রুত উন্নতির জন্য',
-                  price: '৳৪৯৯',
-                  period: '/মাস',
-                  features: const [
-                    'সকল মক টেস্ট আনলিমিটেড',
-                    'প্রিমিয়াম ক্লাস কনটেন্ট অ্যাক্সেস',
-                    'পারফরম্যান্স অ্যানালিটিক্স রিপোর্ট',
-                  ],
-                  buttonText: '১ মাস নিন',
-                  color: AppTheme.primaryColor,
-                  isPopular: true,
-                  onTap: () {},
-                ),
-                const SizedBox(height: 16),
-
-                // 3 Month Plan
-                _PlanCard(
-                  title: '৩ মাসের প্ল্যান',
-                  subtitle: 'সেরা ভ্যালু প্যাকেজ',
-                  price: '৳১২৯৯',
-                  period: '/৩ মাস',
-                  features: const [
-                    '১ মাসের সব ফিচার অন্তর্ভুক্ত',
-                    'ব্যাচভিত্তিক প্রিমিয়াম পেইড ক্লাস',
-                    'প্রায়োরিটি সাপোর্ট ও গাইডেন্স',
-                  ],
-                  buttonText: '৩ মাস নিন',
-                  color: AppTheme.accentTeal,
-                  onTap: () {},
                 ),
               ],
             ),
@@ -115,82 +181,86 @@ class PackagesScreen extends StatelessWidget {
 }
 
 class _PlanCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final String price;
-  final String period;
-  final List<String> features;
-  final String buttonText;
-  final Color color;
-  final bool isPopular;
+  final PackagePlan plan;
   final VoidCallback onTap;
 
-  const _PlanCard({
-    required this.title,
-    required this.subtitle,
-    required this.price,
-    required this.period,
-    required this.features,
-    required this.buttonText,
-    required this.color,
-    this.isPopular = false,
-    required this.onTap,
-  });
+  const _PlanCard({required this.plan, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return EduCard(
-      hasGradientBorder: isPopular,
+      onTap: onTap,
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (isPopular)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                gradient: AppTheme.primaryGradient,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Text(
-                'জনপ্রিয়',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryLight,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.inventory_2_rounded,
+                  color: AppTheme.primaryColor,
+                  size: 26,
                 ),
               ),
-            ),
-          Text(title, style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 4),
-          Text(subtitle, style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      plan.title,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      plan.subtitle,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                price,
-                style: Theme.of(context).textTheme.displayMedium
-                    ?.copyWith(color: color, fontWeight: FontWeight.w800),
+                plan.price,
+                style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                  color: AppTheme.primaryColor,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-              if (period.isNotEmpty)
+              if (plan.period.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4, left: 2),
                   child: Text(
-                    period,
+                    plan.period,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
             ],
           ),
           const SizedBox(height: 20),
-          ...features.map(
+          ...plan.features.map(
             (f) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: Row(
                 children: [
-                  Icon(Icons.check_circle, color: color, size: 18),
+                  const Icon(
+                    Icons.check_circle,
+                    color: AppTheme.primaryColor,
+                    size: 18,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -205,13 +275,11 @@ class _PlanCard extends StatelessWidget {
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            child: isPopular
-                ? EduButton(text: buttonText, onPressed: onTap)
-                : EduButton(
-                    text: buttonText,
-                    isOutlined: true,
-                    onPressed: onTap,
-                  ),
+            child: EduButton(
+              text: 'বিস্তারিত দেখুন',
+              isOutlined: true,
+              onPressed: onTap,
+            ),
           ),
         ],
       ),

@@ -22,20 +22,64 @@ class _StudentCourseDetailsScreenState
     extends State<StudentCourseDetailsScreen> {
   List<CourseContent> _content = [];
   bool _loading = true;
+  bool _loadFailed = false;
+  double? _rating;
+  int _ratingCount = 0;
+  int? _myRating;
+  bool _ratingSaving = false;
 
   @override
   void initState() {
     super.initState();
-    context.read<StudentProvider>().getCourseDetails(widget.course.id!).then((
-      data,
-    ) {
-      if (!mounted) return;
-      setState(() {
-        _content = (data?['content'] as List<CourseContent>?) ?? [];
-        _loading = false;
-      });
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _loadFailed = false;
     });
-    context.read<StudentProvider>().loadTests();
+    final student = context.read<StudentProvider>();
+    Map<String, dynamic>? details;
+    try {
+      final results = await Future.wait([
+        student.getCourseDetails(widget.course.id!),
+        student.loadTests(),
+      ]);
+      details = results.first as Map<String, dynamic>?;
+    } catch (_) {
+      details = null;
+    }
+    if (!mounted) return;
+    setState(() {
+      _content = (details?['content'] as List<CourseContent>?) ?? [];
+      _rating = (details?['rating'] as num?)?.toDouble();
+      _ratingCount = (details?['rating_count'] as num?)?.toInt() ?? 0;
+      _myRating = (details?['my_rating'] as num?)?.toInt();
+      _loadFailed = details == null;
+      _loading = false;
+    });
+  }
+
+  Future<void> _rateCourse(int rating) async {
+    if (_ratingSaving || widget.course.id == null) return;
+    setState(() => _ratingSaving = true);
+    final response = await context.read<StudentProvider>().rateCourse(
+      widget.course.id!,
+      rating,
+    );
+    if (!mounted) return;
+    setState(() => _ratingSaving = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          response.success
+              ? 'আপনার রেটিং সংরক্ষণ করা হয়েছে'
+              : response.message ?? 'রেটিং সংরক্ষণ করা যায়নি',
+        ),
+      ),
+    );
+    if (response.success) await _load();
   }
 
   IconData _icon(String type) {
@@ -127,7 +171,7 @@ class _StudentCourseDetailsScreenState
     final links = _content.where((item) => item.type == 'exam').toList();
     if (exams.isEmpty && links.isEmpty) {
       return EmptyState(
-        icon: Icons.quiz_outlined,
+        icon: Icons.assignment_outlined,
         title: student.error == null
             ? 'এখনও কোনো পরীক্ষা নেই'
             : 'পরীক্ষা লোড করা যায়নি',
@@ -173,7 +217,7 @@ class _StudentCourseDetailsScreenState
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  const Icon(Icons.quiz_outlined, size: 28),
+                  const Icon(Icons.assignment_outlined, size: 28),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
@@ -223,9 +267,25 @@ class _StudentCourseDetailsScreenState
         role: AppRole.student,
         selectedIndex: 1,
       ),
-      appBar: AppBar(title: Text(widget.course.title)),
+      appBar: AppBar(
+        title: Text(widget.course.title),
+        actions: [
+          IconButton(
+            tooltip: 'কোর্স রিফ্রেশ করুন',
+            onPressed: _loading ? null : _load,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      ),
       body: _loading
           ? const LoadingIndicator()
+          : _loadFailed
+          ? EmptyState(
+              icon: Icons.wifi_off_rounded,
+              title: 'কোর্স লোড করা যায়নি',
+              actionText: 'আবার চেষ্টা করুন',
+              onAction: _load,
+            )
           : DefaultTabController(
               length: 4,
               child: Padding(
@@ -236,6 +296,33 @@ class _StudentCourseDetailsScreenState
                     Text(
                       widget.course.description ?? '',
                       style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      children: [
+                        Text(
+                          _rating == null
+                              ? 'এখনও কোনো রেটিং নেই'
+                              : 'রেটিং ${_rating!.toStringAsFixed(1)}/5 ($_ratingCount)',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        for (var star = 1; star <= 5; star++)
+                          IconButton(
+                            tooltip: '$star তারকা রেটিং দিন',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: _ratingSaving
+                                ? null
+                                : () => _rateCourse(star),
+                            icon: Icon(
+                              star <= (_myRating ?? 0)
+                                  ? Icons.star_rounded
+                                  : Icons.star_outline_rounded,
+                              color: Colors.amber.shade700,
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 20),
                     const TabBar(

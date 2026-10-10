@@ -20,16 +20,19 @@ class RoleBottomNavigation extends StatelessWidget {
 
   static const _studentItems = [
     BottomNavigationBarItem(
-      icon: Icon(Icons.dashboard_rounded),
+      icon: Icon(Icons.home_rounded),
       label: 'ড্যাশবোর্ড',
     ),
     BottomNavigationBarItem(
       icon: Icon(Icons.menu_book_rounded),
       label: 'কোর্স',
     ),
-    BottomNavigationBarItem(icon: Icon(Icons.quiz_rounded), label: 'মক টেস্ট'),
     BottomNavigationBarItem(
-      icon: Icon(Icons.analytics_rounded),
+      icon: Icon(Icons.assignment_rounded),
+      label: 'মক টেস্ট',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.bar_chart_rounded),
       label: 'অগ্রগতি',
     ),
     BottomNavigationBarItem(
@@ -40,7 +43,7 @@ class RoleBottomNavigation extends StatelessWidget {
 
   static const _instructorItems = [
     BottomNavigationBarItem(
-      icon: Icon(Icons.dashboard_rounded),
+      icon: Icon(Icons.home_rounded),
       label: 'ড্যাশবোর্ড',
     ),
     BottomNavigationBarItem(
@@ -59,7 +62,7 @@ class RoleBottomNavigation extends StatelessWidget {
 
   static const _adminItems = [
     BottomNavigationBarItem(
-      icon: Icon(Icons.dashboard_rounded),
+      icon: Icon(Icons.home_rounded),
       label: 'ড্যাশবোর্ড',
     ),
     BottomNavigationBarItem(
@@ -71,11 +74,11 @@ class RoleBottomNavigation extends StatelessWidget {
       label: 'কোর্স',
     ),
     BottomNavigationBarItem(
-      icon: Icon(Icons.analytics_rounded),
+      icon: Icon(Icons.description_rounded),
       label: 'রিপোর্ট',
     ),
     BottomNavigationBarItem(
-      icon: Icon(Icons.workspace_premium_rounded),
+      icon: Icon(Icons.inventory_2_rounded),
       label: 'প্যাকেজ',
     ),
     BottomNavigationBarItem(
@@ -124,6 +127,24 @@ class RoleBottomNavigation extends StatelessWidget {
       AppRole.instructor => _instructorItems,
       AppRole.admin => _adminItems,
     };
+    final styledItems = items
+        .map(
+          (item) => BottomNavigationBarItem(
+            icon: item.icon,
+            activeIcon: Container(
+              width: 40,
+              height: 32,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppTheme.primaryLight,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: item.icon,
+            ),
+            label: item.label,
+          ),
+        )
+        .toList();
     return Container(
       decoration: const BoxDecoration(
         color: AppTheme.surfaceColor,
@@ -136,7 +157,7 @@ class RoleBottomNavigation extends StatelessWidget {
         iconSize: role == AppRole.admin ? 22 : 24,
         currentIndex: selectedIndex,
         onTap: onTap ?? (index) => _navigate(context, index),
-        items: items,
+        items: styledItems,
       ),
     );
   }

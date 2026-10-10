@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/course.dart';
 import '../models/course_content.dart';
+import '../models/instructor_student_result.dart';
 import '../services/api_service.dart';
 import '../services/instructor_service.dart';
 
@@ -16,9 +17,10 @@ class InstructorProvider extends ChangeNotifier {
   List<Course> _courses = [];
   bool _isCoursesLoading = false;
   bool _coursesLoaded = false;
-  List<dynamic> _studentResults = [];
+  List<InstructorStudentResult> _studentResults = [];
   bool _isResultsLoading = false;
   bool _resultsLoaded = false;
+  String? _resultsError;
   List<dynamic> _myBugReports = [];
   bool _myBugReportsLoaded = false;
 
@@ -28,9 +30,10 @@ class InstructorProvider extends ChangeNotifier {
   List<Course> get courses => _courses;
   bool get isCoursesLoading => _isCoursesLoading;
   bool get coursesLoaded => _coursesLoaded;
-  List<dynamic> get studentResults => _studentResults;
+  List<InstructorStudentResult> get studentResults => _studentResults;
   bool get isResultsLoading => _isResultsLoading;
   bool get resultsLoaded => _resultsLoaded;
+  String? get resultsError => _resultsError;
   List<dynamic> get myBugReports => _myBugReports;
   bool get myBugReportsLoaded => _myBugReportsLoaded;
 
@@ -100,17 +103,22 @@ class InstructorProvider extends ChangeNotifier {
 
   Future<void> loadStudentResults() async {
     _isResultsLoading = true;
+    _resultsError = null;
     notifyListeners();
     try {
       _studentResults = await _service.getStudentResults();
-    } catch (_) {
+    } catch (error) {
       _studentResults = [];
+      _resultsError = error.toString().replaceFirst('Exception: ', '');
     } finally {
       _resultsLoaded = true;
       _isResultsLoading = false;
       notifyListeners();
     }
   }
+
+  Future<List<InstructorExamResult>> getStudentExamResults(int studentId) =>
+      _service.getStudentExamResults(studentId);
 
   Future<bool> reportBug(String title, String description) async {
     final response = await _service.reportBug(title, description);

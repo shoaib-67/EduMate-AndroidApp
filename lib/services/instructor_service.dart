@@ -1,6 +1,7 @@
 import '../config/api_config.dart';
 import '../models/course.dart';
 import '../models/course_content.dart';
+import '../models/instructor_student_result.dart';
 import 'api_service.dart';
 
 class InstructorService {
@@ -31,7 +32,10 @@ class InstructorService {
     final response = await _api.get(
       '${ApiConfig.instructorCourses}/$courseId/content',
     );
-    if (response.success && response.data is Map) {
+    if (!response.success) {
+      throw Exception(response.message ?? 'কনটেন্ট লোড করা যায়নি');
+    }
+    if (response.data is Map) {
       return ((response.data['content'] as List<dynamic>?) ?? [])
           .map((item) => CourseContent.fromJson(item as Map<String, dynamic>))
           .toList();
@@ -90,24 +94,35 @@ class InstructorService {
   Future<ApiResponse> deleteExam(int examId) =>
       _api.delete('${ApiConfig.instructorExams}/$examId');
 
-  Future<List<dynamic>> getStudentResults() async {
+  Future<List<InstructorStudentResult>> getStudentResults() async {
     final response = await _api.get(ApiConfig.instructorStudents);
-    if (response.success && response.data != null) {
-      return response.data is Map
-          ? (response.data['students'] as List<dynamic>? ?? [])
-          : (response.data as List<dynamic>);
+    if (!response.success) {
+      throw Exception(response.message ?? 'Unable to load student results');
     }
-    return [];
+    final data = response.data as Map<String, dynamic>? ?? {};
+    return (data['students'] as List<dynamic>? ?? [])
+        .map(
+          (item) =>
+              InstructorStudentResult.fromJson(item as Map<String, dynamic>),
+        )
+        .toList();
   }
 
-  Future<Map<String, dynamic>?> getProfile() async {
-    final response = await _api.get(ApiConfig.instructorProfile);
-    if (response.success) return response.data as Map<String, dynamic>?;
-    return null;
-  }
-
-  Future<ApiResponse> updateProfile(Map<String, dynamic> data) async {
-    return await _api.put(ApiConfig.instructorProfile, body: data);
+  Future<List<InstructorExamResult>> getStudentExamResults(
+    int studentId,
+  ) async {
+    final response = await _api.get(
+      '${ApiConfig.instructorStudents}/$studentId/results',
+    );
+    if (!response.success) {
+      throw Exception(response.message ?? 'Unable to load exam results');
+    }
+    final data = response.data as Map<String, dynamic>? ?? {};
+    return (data['results'] as List<dynamic>? ?? [])
+        .map(
+          (item) => InstructorExamResult.fromJson(item as Map<String, dynamic>),
+        )
+        .toList();
   }
 
   Future<ApiResponse> reportBug(String title, String description) async {

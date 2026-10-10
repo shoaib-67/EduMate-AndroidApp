@@ -36,12 +36,6 @@ class AppTheme {
     end: Alignment.bottomRight,
   );
 
-  static const LinearGradient cardGradient = LinearGradient(
-    colors: [Color(0xFFFFFFFF), Color(0xFFF5F8FC)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
   static const LinearGradient successGradient = LinearGradient(
     colors: [Color(0xFF149A8A), Color(0xFF0B746A)],
     begin: Alignment.topLeft,
@@ -64,6 +58,8 @@ class AppTheme {
         onSurface: textPrimary,
         error: error,
         onError: Colors.white,
+        outline: Color(0xFFDCE5EF),
+        surfaceContainerHighest: Color(0xFFE8F0FA),
       ),
       textTheme: _buildTextTheme(),
       appBarTheme: AppBarTheme(
@@ -81,16 +77,33 @@ class AppTheme {
       cardTheme: CardThemeData(
         color: cardColor,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Color(0xFFDCE5EF)),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(0, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          textStyle: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
           elevation: 0,
+          minimumSize: const Size(0, 48),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
           textStyle: GoogleFonts.inter(
             fontSize: 15,
@@ -101,10 +114,11 @@ class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: primaryColor,
+          minimumSize: const Size(0, 48),
           side: const BorderSide(color: primaryColor, width: 1.5),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
           textStyle: GoogleFonts.inter(
             fontSize: 15,
@@ -129,19 +143,19 @@ class AppTheme {
           vertical: 14,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: const Color(0xFFBFD0E3)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: primaryColor, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: error, width: 1.5),
         ),
         hintStyle: GoogleFonts.inter(color: textMuted, fontSize: 14),
@@ -153,6 +167,23 @@ class AppTheme {
         unselectedItemColor: textMuted,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
+        showUnselectedLabels: true,
+      ),
+      tabBarTheme: TabBarThemeData(
+        labelColor: primaryColor,
+        unselectedLabelColor: textSecondary,
+        indicatorColor: primaryColor,
+        indicatorSize: TabBarIndicatorSize.label,
+        labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w700),
+        dividerColor: const Color(0xFFDCE5EF),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: surfaceColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
       ),
       chipTheme: ChipThemeData(
         backgroundColor: cardColorLight,

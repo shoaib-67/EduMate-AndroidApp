@@ -7,6 +7,7 @@ import '../../providers/instructor_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/external_links.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/role_bottom_navigation.dart';
 
 class InstructorCourseContentScreen extends StatefulWidget {
   final Course course;
@@ -22,6 +23,7 @@ class _InstructorCourseContentScreenState
     extends State<InstructorCourseContentScreen> {
   List<CourseContent> _content = [];
   bool _loading = true;
+  bool _loadFailed = false;
 
   @override
   void initState() {
@@ -30,12 +32,25 @@ class _InstructorCourseContentScreenState
   }
 
   Future<void> _loadContent() async {
-    final items = await context.read<InstructorProvider>().getCourseContent(
-      widget.course.id!,
-    );
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _loadFailed = false;
+      });
+    }
+    List<CourseContent> items = [];
+    bool failed = false;
+    try {
+      items = await context.read<InstructorProvider>().getCourseContent(
+        widget.course.id!,
+      );
+    } catch (_) {
+      failed = true;
+    }
     if (mounted) {
       setState(() {
         _content = items;
+        _loadFailed = failed;
         _loading = false;
       });
     }
@@ -104,6 +119,11 @@ class _InstructorCourseContentScreenState
                 if (title.text.trim().isEmpty ||
                     url.text.trim().isEmpty ||
                     description.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(
+                      content: Text('শিরোনাম, লিংক ও বিবরণ পূরণ করুন।'),
+                    ),
+                  );
                   return;
                 }
                 final ok = await context
@@ -114,7 +134,19 @@ class _InstructorCourseContentScreenState
                       'url': url.text.trim(),
                       'description': description.text.trim(),
                     });
-                if (ctx.mounted) Navigator.pop(ctx, ok);
+                if (ctx.mounted) {
+                  if (ok) {
+                    Navigator.pop(ctx, true);
+                  } else {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'কনটেন্ট যোগ করা যায়নি। আবার চেষ্টা করুন।',
+                        ),
+                      ),
+                    );
+                  }
+                }
               },
               child: const Text('যোগ করুন'),
             ),
@@ -181,15 +213,35 @@ class _InstructorCourseContentScreenState
                   ),
                 ),
                 IconButton(
+                  tooltip: 'লিংক খুলুন',
                   onPressed: () => openExternalUrl(item.url),
                   icon: const Icon(Icons.open_in_new),
                 ),
                 IconButton(
+                  tooltip: 'কনটেন্ট মুছুন',
                   onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('কনটেন্ট মুছবেন?'),
+                        content: Text('“${item.title}” মুছে ফেলা হবে।'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('বাতিল'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('মুছুন'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirmed != true || !context.mounted) return;
                     final ok = await context
                         .read<InstructorProvider>()
                         .deleteCourseContent(widget.course.id!, item.id);
-                    if (ok) _loadContent();
+                    if (ok && mounted) _loadContent();
                   },
                   icon: const Icon(Icons.delete_outline),
                 ),
@@ -204,10 +256,20 @@ class _InstructorCourseContentScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomNavigationBar: const RoleBottomNavigation(
+        role: AppRole.instructor,
+        selectedIndex: 1,
+      ),
       appBar: AppBar(
         title: Text(widget.course.title),
         actions: [
           IconButton(
+            tooltip: 'কনটেন্ট রিফ্রেশ করুন',
+            onPressed: _loading ? null : _loadContent,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+          IconButton(
+            tooltip: 'কনটেন্ট যোগ করুন',
             onPressed: _addContent,
             icon: const Icon(Icons.add_circle_outline),
           ),
@@ -215,6 +277,13 @@ class _InstructorCourseContentScreenState
       ),
       body: _loading
           ? const LoadingIndicator()
+          : _loadFailed
+          ? EmptyState(
+              icon: Icons.wifi_off_rounded,
+              title: 'কনটেন্ট লোড করা যায়নি',
+              actionText: 'আবার চেষ্টা করুন',
+              onAction: _loadContent,
+            )
           : DefaultTabController(
               length: 4,
               child: Column(

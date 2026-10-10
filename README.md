@@ -21,7 +21,7 @@ EduMate is an admission-preparation and learning platform with separate experien
 ### Instructors
 
 - Instructor dashboard with course totals, student statistics, and exam summaries
-- Create, update, and delete instructor-owned courses
+- Manage materials and exams for courses assigned by an administrator
 - Add, view, and remove course materials such as PDFs, videos, live classes, and exams
 - Create practice exams for student assessment
 - View enrolled students and review student performance results
@@ -34,7 +34,7 @@ EduMate is an admission-preparation and learning platform with separate experien
 - View, create, and delete user accounts
 - Manage user roles and control access to student, instructor, and administrator features
 - Review bug reports, update their statuses, and monitor issue summaries
-- Manage courses, course content, and learning packages across the platform
+- Create and manage courses, assign instructors and students, and manage learning packages
 - Update administrator profile information
 
 ### Platform
@@ -74,9 +74,6 @@ From the project root:
 flutter run -d chrome
 ```
 
-<<<<<<< HEAD
-
-=======
 The API creates the `edumate` database and tables automatically on startup. 
 Check the database connection at `http://localhost:5000/api/health`.
 

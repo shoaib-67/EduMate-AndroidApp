@@ -4,13 +4,17 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/instructor_provider.dart';
 import '../../models/user.dart';
+import '../../models/instructor_student_result.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/dashboard_widgets.dart';
 import '../../widgets/my_bug_reports.dart';
+import '../../widgets/profile_form.dart';
 import '../../widgets/role_bottom_navigation.dart';
 import '../../utils/external_links.dart';
 import 'course_content_screen.dart';
 import 'instructor_exams_screen.dart';
+import 'instructor_student_results_screen.dart';
 
 class InstructorDashboard extends StatefulWidget {
   const InstructorDashboard({super.key, this.initialTab = 0});
@@ -102,6 +106,9 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
         role: AppRole.instructor,
         selectedIndex: _currentIndex,
         onTap: (i) {
+          if (i == 2) {
+            instructor.loadStudentResults();
+          }
           if (i == 3) {
             context.read<InstructorProvider>().loadMyBugReports();
           }
@@ -121,46 +128,28 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'ইন্সট্রাক্টর প্যানেল',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        auth.user?.name ?? 'ইন্সট্রাক্টর',
-                        style: Theme.of(context).textTheme.headlineLarge,
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    gradient: AppTheme.primaryGradient,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.school,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ),
-              ],
+            DashboardHeader(
+              name: auth.user?.name ?? 'ইন্সট্রাক্টর',
+              roleLabel: 'ইন্সট্রাক্টর ড্যাশবোর্ড',
+              icon: Icons.co_present_rounded,
             ),
             const SizedBox(height: 24),
+            const DashboardHighlightCard(
+              icon: Icons.cast_for_education_rounded,
+              title: 'আপনার ক্লাস প্রস্তুত করুন',
+              subtitle:
+                  'কোর্সের কনটেন্ট, পরীক্ষা ও শিক্ষার্থীদের অগ্রগতি দেখুন',
+            ),
+            const SizedBox(height: 24),
+            const DashboardSectionTitle('আপনার পরিসংখ্যান'),
+            const SizedBox(height: 12),
             GridView.count(
               crossAxisCount: 2,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: 1.3,
+              mainAxisExtent: 152,
               children: [
                 StatCard(
                   icon: Icons.menu_book_rounded,
@@ -175,7 +164,7 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
                   iconColor: AppTheme.accentTeal,
                 ),
                 StatCard(
-                  icon: Icons.quiz_rounded,
+                  icon: Icons.assignment_rounded,
                   label: 'তৈরি পরীক্ষা',
                   value: '${instructor.dashboardData?['total_exams'] ?? 0}',
                   iconColor: AppTheme.accentOrange,
@@ -183,77 +172,65 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
                 StatCard(
                   icon: Icons.star_rounded,
                   label: 'গড় রেটিং',
-                  value: '${instructor.dashboardData?['avg_rating'] ?? '0.0'}',
+                  value: instructor.dashboardData?['avg_rating'] == null
+                      ? '—'
+                      : '${instructor.dashboardData!['avg_rating']}/5',
                   iconColor: AppTheme.accentPink,
                 ),
               ],
             ),
             const SizedBox(height: 24),
-            Text(
-              'দ্রুত অ্যাকশন',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+            const DashboardSectionTitle('দ্রুত অ্যাকশন'),
             const SizedBox(height: 12),
-            _quickAction(
-              Icons.quiz_rounded,
-              'পরীক্ষা তৈরি',
-              'কোর্স নির্বাচন করে MCQ পরীক্ষা প্রকাশ করুন',
-              AppTheme.accentTeal,
-              () => Navigator.of(context).pushNamed('/instructor/create-exam'),
+            DashboardQuickAction(
+              icon: Icons.note_add_rounded,
+              title: 'পরীক্ষা তৈরি',
+              subtitle: 'কোর্স নির্বাচন করে MCQ পরীক্ষা প্রকাশ করুন',
+              color: AppTheme.accentTeal,
+              onTap: () =>
+                  Navigator.of(context).pushNamed('/instructor/create-exam'),
             ),
             const SizedBox(height: 10),
-            _quickAction(
-              Icons.analytics_rounded,
-              'ফলাফল দেখুন',
-              'শিক্ষার্থীদের পারফরম্যান্স',
-              AppTheme.accentOrange,
-              () {
+            DashboardQuickAction(
+              icon: Icons.fact_check_rounded,
+              title: 'ফলাফল দেখুন',
+              subtitle: 'শিক্ষার্থীদের পারফরম্যান্স',
+              color: AppTheme.accentOrange,
+              onTap: () {
+                instructor.loadStudentResults();
                 setState(() => _currentIndex = 2);
+              },
+            ),
+            const SizedBox(height: 10),
+            DashboardQuickAction(
+              icon: Icons.menu_book_rounded,
+              title: 'আমার কোর্স',
+              subtitle: 'কোর্সের কনটেন্ট ও পরীক্ষা পরিচালনা করুন',
+              color: AppTheme.primaryColor,
+              onTap: () => setState(() => _currentIndex = 1),
+            ),
+            const SizedBox(height: 10),
+            DashboardQuickAction(
+              icon: Icons.bug_report_outlined,
+              title: 'বাগ রিপোর্ট',
+              subtitle: 'অ্যাপের কোনো সমস্যা জানিয়ে দিন',
+              color: AppTheme.accentPink,
+              onTap: () =>
+                  Navigator.of(context).pushNamed('/instructor/report-bug'),
+            ),
+            const SizedBox(height: 10),
+            DashboardQuickAction(
+              icon: Icons.person_rounded,
+              title: 'প্রোফাইল',
+              subtitle: 'তথ্য সম্পাদনা ও রিপোর্ট দেখুন',
+              color: AppTheme.primaryColor,
+              onTap: () {
+                instructor.loadMyBugReports();
+                setState(() => _currentIndex = 3);
               },
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _quickAction(
-    IconData icon,
-    String title,
-    String sub,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return EduCard(
-      onTap: onTap,
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withAlpha(25),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 2),
-                Text(sub, style: Theme.of(context).textTheme.bodySmall),
-              ],
-            ),
-          ),
-          const Icon(
-            Icons.arrow_forward_ios_rounded,
-            size: 16,
-            color: AppTheme.textMuted,
-          ),
-        ],
       ),
     );
   }
@@ -355,7 +332,7 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
                                         InstructorExamsScreen(course: course),
                                   ),
                                 ),
-                                icon: const Icon(Icons.quiz_outlined),
+                                icon: const Icon(Icons.assignment_outlined),
                                 tooltip: 'কোর্সের পরীক্ষা তৈরি ও পরিচালনা',
                               ),
                           ],
@@ -387,9 +364,18 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
                 icon: const Icon(Icons.arrow_back_rounded, size: 20),
                 tooltip: 'আগের পেজে ফিরুন',
               ),
-              Text(
-                'শিক্ষার্থীদের ফলাফল',
-                style: Theme.of(context).textTheme.headlineLarge,
+              Expanded(
+                child: Text(
+                  'শিক্ষার্থীদের ফলাফল',
+                  style: Theme.of(context).textTheme.headlineLarge,
+                ),
+              ),
+              IconButton(
+                onPressed: instructor.isResultsLoading
+                    ? null
+                    : instructor.loadStudentResults,
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: 'ফলাফল রিফ্রেশ করুন',
               ),
             ],
           ),
@@ -397,78 +383,120 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
         Expanded(
           child: instructor.isResultsLoading || !instructor.resultsLoaded
               ? const LoadingIndicator()
-              : instructor.studentResults.isEmpty
-              ? const EmptyState(
-                  icon: Icons.people_rounded,
-                  title: 'কোনো ফলাফল নেই',
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: instructor.studentResults.length,
-                  itemBuilder: (context, index) {
-                    final student =
-                        instructor.studentResults[index]
-                            as Map<String, dynamic>;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: EduCard(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withAlpha(25),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  (student['name'] as String? ?? 'U')
-                                      .substring(0, 1)
-                                      .toUpperCase(),
-                                  style: const TextStyle(
-                                    color: AppTheme.primaryColor,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    student['name'] as String? ?? '',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium,
-                                  ),
-                                  Text(
-                                    student['email'] as String? ?? '',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              '${student['score'] ?? 0}%',
-                              style: TextStyle(
-                                color: AppTheme.primaryColor,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
+              : instructor.resultsError != null
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        instructor.resultsError!,
+                        textAlign: TextAlign.center,
                       ),
-                    );
-                  },
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: instructor.loadStudentResults,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('আবার চেষ্টা করুন'),
+                      ),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: instructor.loadStudentResults,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    children: [
+                      Text(
+                        'আপনার কোর্সে ${instructor.studentResults.length} জন শিক্ষার্থী',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 16),
+                      if (instructor.studentResults.isEmpty)
+                        const EmptyState(
+                          icon: Icons.people_rounded,
+                          title: 'এখনও কোনো শিক্ষার্থী নেই',
+                          subtitle:
+                              'অ্যাডমিন শিক্ষার্থী যোগ করলে এখানে দেখা যাবে',
+                        )
+                      else
+                        for (final student in instructor.studentResults) ...[
+                          _studentResultCard(instructor, student),
+                          const SizedBox(height: 10),
+                        ],
+                    ],
+                  ),
                 ),
         ),
       ],
+    );
+  }
+
+  Widget _studentResultCard(
+    InstructorProvider instructor,
+    InstructorStudentResult student,
+  ) {
+    final score = student.averageScore;
+    return EduCard(
+      onTap: () async {
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => InstructorStudentResultsScreen(student: student),
+          ),
+        );
+        if (mounted) instructor.loadStudentResults();
+      },
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: AppTheme.primaryColor.withAlpha(25),
+            child: Text(
+              student.name.isEmpty ? '?' : student.name[0].toUpperCase(),
+              style: const TextStyle(
+                color: AppTheme.primaryColor,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  student.name,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                Text(
+                  student.email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                Text(
+                  '${student.enrolledCourses}টি কোর্স • ${student.testsCompleted}টি পরীক্ষা',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                score == null
+                    ? '—'
+                    : '${score.toStringAsFixed(score == score.roundToDouble() ? 0 : 1)}%',
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(color: AppTheme.primaryColor),
+              ),
+              Text('গড় স্কোর', style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -547,56 +575,13 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
             ),
           ),
           const SizedBox(height: 32),
-          EduCard(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                TextFormField(
-                  controller: _nameCtrl!,
-                  decoration: const InputDecoration(
-                    labelText: 'নাম',
-                    prefixIcon: Icon(Icons.person_outline, size: 20),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  initialValue: auth.user?.email,
-                  readOnly: true,
-                  decoration: const InputDecoration(
-                    labelText: 'ইমেইল',
-                    prefixIcon: Icon(Icons.email_outlined, size: 20),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _phoneCtrl!,
-                  decoration: const InputDecoration(
-                    labelText: 'ফোন',
-                    prefixIcon: Icon(Icons.phone_outlined, size: 20),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _institutionCtrl!,
-                  decoration: const InputDecoration(
-                    labelText: 'প্রতিষ্ঠান',
-                    prefixIcon: Icon(Icons.account_balance_outlined, size: 20),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: EduButton(
-                    text: 'আপডেট করুন',
-                    icon: Icons.save_rounded,
-                    isLoading: _isSavingProfile,
-                    onPressed: _isSavingProfile
-                        ? null
-                        : () => _saveProfile(auth),
-                  ),
-                ),
-              ],
-            ),
+          ProfileForm(
+            nameController: _nameCtrl!,
+            phoneController: _phoneCtrl!,
+            institutionController: _institutionCtrl!,
+            email: auth.user?.email,
+            isSaving: _isSavingProfile,
+            onSave: () => _saveProfile(auth),
           ),
           const SizedBox(height: 16),
           EduCard(

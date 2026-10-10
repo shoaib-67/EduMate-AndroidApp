@@ -194,6 +194,17 @@ async function initializeDatabase() {
     )
   `);
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS course_ratings (
+      course_id INT NOT NULL,
+      student_id INT NOT NULL,
+      rating TINYINT NOT NULL,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (course_id, student_id),
+      FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+      FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS packages (
       id INT PRIMARY KEY AUTO_INCREMENT,
       title VARCHAR(180) NOT NULL,
@@ -470,7 +481,7 @@ app.get('/api/student/dashboard', requireAuth, async (req, res) => {
   res.json({
     tests_completed: Number(userStats.tests_completed),
     avg_score: Number(Number(userStats.avg_score).toFixed(1)),
-    rank: Number(rankRow.rank),
+    rank: Number(userStats.tests_completed) > 0 ? Number(rankRow.rank) : null,
     enrolled_courses: Number(courseCount.enrolled_courses),
   });
 });
@@ -480,12 +491,16 @@ app.get('/api/student/courses', requireAuth, async (req, res) => {
     SELECT c.id, c.title, c.description, NULL AS category, NULL AS thumbnail,
       c.instructor_id, 0 AS total_lessons,
       (SELECT COUNT(*) FROM course_enrollments ce WHERE ce.course_id = c.id) AS enrolled_count,
-      0 AS rating,
+      (SELECT ROUND(AVG(cr.rating), 1) FROM course_ratings cr
+       WHERE cr.course_id = c.id) AS rating,
       FALSE AS is_premium, c.created_at
     FROM courses c JOIN course_enrollments e ON e.course_id = c.id
     WHERE e.student_id = ? ORDER BY c.created_at DESC
   `, [req.auth.id]);
-  res.json({ courses });
+  res.json({ courses: courses.map((course) => ({
+    ...course,
+    rating: course.rating == null ? null : Number(course.rating),
+  })) });
 });
 
 app.get('/api/student/tests', requireAuth, async (req, res) => {
@@ -621,14 +636,37 @@ app.get('/api/student/performance', requireAuth, async (req, res) => {
     FROM test_results r JOIN tests t ON t.id = r.test_id
     WHERE r.user_id = ? ORDER BY r.completed_at DESC LIMIT 10
   `, [req.auth.id]);
+  const [[rankStats]] = await pool.query(`
+    SELECT COUNT(*) AS total_participants,
+      SUM(CASE WHEN average_score > (
+        SELECT AVG(score) FROM test_results WHERE user_id = ?
+      ) THEN 1 ELSE 0 END) + 1 AS rank
+    FROM (SELECT user_id, AVG(score) AS average_score
+      FROM test_results GROUP BY user_id) participant_scores
+  `, [req.auth.id]);
+  const [subjectRows] = await pool.query(`
+    SELECT COALESCE(NULLIF(TRIM(t.subject), ''), 'General') AS subject,
+      ROUND(AVG(r.score), 1) AS score,
+      SUM(r.total_questions) AS total_questions,
+      SUM(r.correct_answers) AS correct_answers
+    FROM test_results r JOIN tests t ON t.id = r.test_id
+    WHERE r.user_id = ?
+    GROUP BY COALESCE(NULLIF(TRIM(t.subject), ''), 'General')
+    ORDER BY subject
+  `, [req.auth.id]);
   res.json({
     average_score: Number(Number(summary.average_score).toFixed(1)),
     total_tests_taken: Number(summary.total_tests_taken),
     total_correct: Number(summary.total_correct),
     total_incorrect: Number(summary.total_incorrect),
-    rank: 1,
-    total_participants: 1,
-    subject_wise: [],
+    rank: Number(summary.total_tests_taken) > 0 ? Number(rankStats.rank) : null,
+    total_participants: Number(rankStats.total_participants),
+    subject_wise: subjectRows.map((row) => ({
+      subject: row.subject,
+      score: Number(row.score),
+      total_questions: Number(row.total_questions),
+      correct_answers: Number(row.correct_answers),
+    })),
     recent_results: recentResults,
   });
 });
@@ -643,6 +681,23 @@ app.get('/api/discussions', requireAuth, async (_req, res) => {
     GROUP BY d.id ORDER BY d.created_at DESC
   `);
   res.json({ discussions });
+});
+
+app.get('/api/discussions/:id', requireAuth, async (req, res) => {
+  const [[discussion]] = await pool.query(`
+    SELECT d.id, d.title, d.content, d.user_id AS author_id,
+      u.name AS author_name, u.role AS author_role, d.created_at
+    FROM discussions d JOIN users u ON u.id = d.user_id
+    WHERE d.id = ?
+  `, [req.params.id]);
+  if (!discussion) return res.status(404).json({ message: 'Discussion not found' });
+  const [replies] = await pool.query(`
+    SELECT dr.id, dr.content, dr.user_id AS author_id,
+      u.name AS author_name, dr.created_at
+    FROM discussion_replies dr JOIN users u ON u.id = dr.user_id
+    WHERE dr.discussion_id = ? ORDER BY dr.created_at ASC
+  `, [req.params.id]);
+  res.json({ ...discussion, reply_count: replies.length, replies });
 });
 
 app.post('/api/discussions', requireAuth, async (req, res) => {
@@ -710,10 +765,15 @@ app.get('/api/packages', requireAuth, async (_req, res) => {
 
 app.get('/api/student/courses/:id', requireAuth, async (req, res) => {
   const [[course]] = await pool.query(
-    `SELECT c.id, c.title, c.description, c.instructor_id, c.created_at
+    `SELECT c.id, c.title, c.description, c.instructor_id, c.created_at,
+      (SELECT ROUND(AVG(cr.rating), 1) FROM course_ratings cr
+       WHERE cr.course_id = c.id) AS rating,
+      (SELECT COUNT(*) FROM course_ratings cr WHERE cr.course_id = c.id) AS rating_count,
+      (SELECT cr.rating FROM course_ratings cr
+       WHERE cr.course_id = c.id AND cr.student_id = ?) AS my_rating
      FROM courses c JOIN course_enrollments e ON e.course_id = c.id
      WHERE c.id = ? AND e.student_id = ?`,
-    [req.params.id, req.auth.id],
+    [req.auth.id, req.params.id, req.auth.id],
   );
   if (!course) return res.status(404).json({ message: 'Course not found' });
   const [courseContent] = await pool.query(
@@ -721,7 +781,33 @@ app.get('/api/student/courses/:id', requireAuth, async (req, res) => {
      FROM course_content WHERE course_id = ? ORDER BY created_at DESC`,
     [req.params.id],
   );
-  res.json({ ...course, content: courseContent });
+  res.json({
+    ...course,
+    rating: course.rating == null ? null : Number(course.rating),
+    rating_count: Number(course.rating_count),
+    my_rating: course.my_rating == null ? null : Number(course.my_rating),
+    content: courseContent,
+  });
+});
+
+app.post('/api/student/courses/:id/rating', requireAuth, async (req, res) => {
+  if (req.auth.role !== 'student') {
+    return res.status(403).json({ message: 'Student access required' });
+  }
+  const rating = req.body?.rating;
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return res.status(400).json({ message: 'Rating must be an integer from 1 to 5' });
+  }
+  const [[enrollment]] = await pool.query(
+    'SELECT 1 FROM course_enrollments WHERE course_id = ? AND student_id = ?',
+    [req.params.id, req.auth.id],
+  );
+  if (!enrollment) return res.status(404).json({ message: 'Course not found' });
+  await pool.query(`
+    INSERT INTO course_ratings (course_id, student_id, rating) VALUES (?, ?, ?)
+    ON DUPLICATE KEY UPDATE rating = VALUES(rating)
+  `, [req.params.id, req.auth.id, rating]);
+  res.json({ message: 'Rating saved', rating });
 });
 
 app.get('/api/instructor/dashboard', requireAuth, requireInstructor, async (req, res) => {
@@ -739,11 +825,16 @@ app.get('/api/instructor/dashboard', requireAuth, requireInstructor, async (req,
     'SELECT COUNT(*) AS total_exams FROM tests t JOIN courses c ON c.id = t.course_id WHERE c.instructor_id = ?',
     [req.auth.id],
   );
+  const [[ratingStats]] = await pool.query(`
+    SELECT ROUND(AVG(cr.rating), 1) AS avg_rating
+    FROM course_ratings cr JOIN courses c ON c.id = cr.course_id
+    WHERE c.instructor_id = ?
+  `, [req.auth.id]);
   res.json({
     total_courses: Number(courseStats.total_courses),
     total_students: Number(studentStats.total_students),
     total_exams: Number(examStats.total_exams),
-    avg_rating: 0,
+    avg_rating: ratingStats.avg_rating == null ? null : Number(ratingStats.avg_rating),
   });
 });
 
@@ -752,11 +843,16 @@ app.get('/api/instructor/courses', requireAuth, requireInstructor, async (req, r
     `SELECT c.id, c.title, c.description, NULL AS category, NULL AS thumbnail,
       c.instructor_id, 0 AS total_lessons,
       (SELECT COUNT(*) FROM course_enrollments e WHERE e.course_id = c.id) AS enrolled_count,
-      0 AS rating, FALSE AS is_premium, c.created_at
+      (SELECT ROUND(AVG(cr.rating), 1) FROM course_ratings cr
+       WHERE cr.course_id = c.id) AS rating,
+      FALSE AS is_premium, c.created_at
      FROM courses c WHERE c.instructor_id = ? ORDER BY c.created_at DESC`,
     [req.auth.id],
   );
-  res.json({ courses });
+  res.json({ courses: courses.map((course) => ({
+    ...course,
+    rating: course.rating == null ? null : Number(course.rating),
+  })) });
 });
 
 app.get('/api/instructor/courses/:id/content', requireAuth, requireInstructor, async (req, res) => {
@@ -775,7 +871,7 @@ app.get('/api/instructor/courses/:id/content', requireAuth, requireInstructor, a
 
 app.post('/api/instructor/courses/:id/content', requireAuth, requireInstructor, async (req, res) => {
   const { title, type, url, description } = req.body || {};
-  if (!title || !['pdf', 'video', 'live'].includes(type) || !url || !description) {
+  if (!title || !['pdf', 'video', 'exam', 'live'].includes(type) || !url || !description) {
     return res.status(400).json({ message: 'Title, type, URL and description are required' });
   }
   const [[course]] = await pool.query(
@@ -802,14 +898,50 @@ app.delete('/api/instructor/courses/:courseId/content/:contentId', requireAuth, 
   res.json({ message: 'Course content deleted' });
 });
 
-app.get('/api/instructor/students', requireAuth, requireInstructor, async (_req, res) => {
+app.get('/api/instructor/students', requireAuth, requireInstructor, async (req, res) => {
   const [students] = await pool.query(
-    `SELECT u.id, u.name, u.email, COUNT(r.id) AS tests_completed,
-      COALESCE(AVG(r.score), 0) AS average_score
-     FROM users u LEFT JOIN test_results r ON r.user_id = u.id
-     WHERE u.role = 'student' GROUP BY u.id ORDER BY u.name`,
+    `SELECT u.id, u.name, u.email, enrolled.enrolled_courses,
+      COALESCE(results.tests_completed, 0) AS tests_completed,
+      results.average_score
+     FROM (
+       SELECT e.student_id, COUNT(*) AS enrolled_courses
+       FROM course_enrollments e JOIN courses c ON c.id = e.course_id
+       WHERE c.instructor_id = ? GROUP BY e.student_id
+     ) enrolled
+     JOIN users u ON u.id = enrolled.student_id
+     LEFT JOIN (
+       SELECT r.user_id, COUNT(*) AS tests_completed,
+         ROUND(AVG(r.score), 1) AS average_score
+       FROM test_results r JOIN tests t ON t.id = r.test_id
+         JOIN courses c ON c.id = t.course_id
+         JOIN course_enrollments e ON e.course_id = t.course_id AND e.student_id = r.user_id
+       WHERE c.instructor_id = ? GROUP BY r.user_id
+     ) results ON results.user_id = u.id
+     WHERE u.role = 'student' ORDER BY u.name, u.id`,
+    [req.auth.id, req.auth.id],
   );
   res.json({ students });
+});
+
+app.get('/api/instructor/students/:id/results', requireAuth, requireInstructor, async (req, res) => {
+  const [[student]] = await pool.query(
+    `SELECT u.id FROM users u JOIN course_enrollments e ON e.student_id = u.id
+       JOIN courses c ON c.id = e.course_id
+     WHERE u.id = ? AND u.role = 'student' AND c.instructor_id = ? LIMIT 1`,
+    [req.params.id, req.auth.id],
+  );
+  if (!student) return res.status(404).json({ message: 'Student not found in your courses' });
+  const [results] = await pool.query(
+    `SELECT r.id, c.title AS course_title, t.title AS exam_title,
+       r.score, r.correct_answers, r.total_questions, r.completed_at
+     FROM test_results r JOIN tests t ON t.id = r.test_id
+       JOIN courses c ON c.id = t.course_id
+       JOIN course_enrollments e ON e.course_id = t.course_id AND e.student_id = r.user_id
+     WHERE r.user_id = ? AND c.instructor_id = ?
+     ORDER BY r.completed_at DESC, r.id DESC`,
+    [req.params.id, req.auth.id],
+  );
+  res.json({ results });
 });
 
 app.get('/api/instructor/profile', requireAuth, requireInstructor, async (req, res) => {
@@ -1191,7 +1323,11 @@ app.post('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
 app.put('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
   const { role } = req.body || {};
   if (!['student', 'instructor', 'admin'].includes(role)) return res.status(400).json({ message: 'Invalid role' });
-  await pool.query('UPDATE users SET role = ? WHERE id = ?', [role, req.params.id]);
+  if (Number(req.params.id) === req.auth.id && role !== 'admin') {
+    return res.status(400).json({ message: 'You cannot remove your own admin access' });
+  }
+  const [result] = await pool.query('UPDATE users SET role = ? WHERE id = ?', [role, req.params.id]);
+  if (result.affectedRows === 0) return res.status(404).json({ message: 'User not found' });
   res.json({ message: 'User updated' });
 });
 

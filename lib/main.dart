@@ -17,7 +17,6 @@ import 'screens/student/student_dashboard.dart';
 import 'screens/student/performance_screen.dart';
 import 'screens/student/discussion_screen.dart';
 import 'screens/student/packages_screen.dart';
-import 'screens/student/student_profile_screen.dart';
 import 'screens/student/report_bug_screen.dart';
 import 'screens/student/test_taking_screen.dart';
 import 'screens/instructor/instructor_dashboard.dart';
@@ -96,7 +95,7 @@ class EduMateApp extends StatelessWidget {
         page = const PackagesScreen();
         break;
       case '/student/profile':
-        page = const StudentProfileScreen();
+        page = const StudentDashboard(initialTab: 4);
         break;
       case '/student/report-bug':
         page = const ReportBugScreen();

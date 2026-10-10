@@ -73,6 +73,7 @@ class _TestTakingScreenState extends State<TestTakingScreen> {
       if (!mounted) return;
       if (!response.success) {
         _isSubmitting = false;
+        if (_remainingSeconds > 0) _startTimer();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(response.message ?? 'পরীক্ষা জমা দেওয়া যায়নি'),
@@ -111,7 +112,7 @@ class _TestTakingScreenState extends State<TestTakingScreen> {
         ),
         appBar: AppBar(title: Text(widget.test.title)),
         body: const EmptyState(
-          icon: Icons.quiz_rounded,
+          icon: Icons.assignment_rounded,
           title: 'কোনো প্রশ্ন পাওয়া যায়নি',
         ),
       );

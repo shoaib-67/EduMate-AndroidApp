@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/common_widgets.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -69,55 +70,19 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    const ink = Color(0xFF12253F);
-    const muted = Color(0xFF607086);
+    const ink = AppTheme.textPrimary;
+    const muted = AppTheme.textSecondary;
     const brand = AppTheme.primaryColor;
     const brandDark = AppTheme.primaryDark;
-    const line = Color(0xFFE0ECF6);
 
     InputDecoration inputDecoration(String label, IconData icon) =>
         InputDecoration(
           labelText: label,
-          labelStyle: GoogleFonts.manrope(color: muted, fontSize: 13),
           prefixIcon: Icon(icon, size: 19, color: brandDark),
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 15,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: line),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: brand, width: 1.5),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Colors.redAccent),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
-          ),
         );
 
-    final loginCard = Container(
+    final loginCard = EduCard(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFDCEBF6)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x16083858),
-            blurRadius: 28,
-            offset: Offset(0, 16),
-          ),
-        ],
-      ),
       child: Form(
         key: _formKey,
         child: Column(
@@ -141,7 +106,7 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Login',
+                        'লগইন',
                         style: GoogleFonts.inter(
                           color: ink,
                           fontSize: 27,
@@ -162,6 +127,8 @@ class _LoginScreenState extends State<LoginScreen>
             TextFormField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.email],
               style: GoogleFonts.manrope(color: ink, fontSize: 14),
               decoration: inputDecoration('ইমেইল', Icons.email_outlined),
               validator: (value) {
@@ -174,6 +141,9 @@ class _LoginScreenState extends State<LoginScreen>
             TextFormField(
               controller: _passwordController,
               obscureText: _obscurePassword,
+              textInputAction: TextInputAction.done,
+              autofillHints: const [AutofillHints.password],
+              onFieldSubmitted: (_) => _handleLogin(),
               style: GoogleFonts.manrope(color: ink, fontSize: 14),
               decoration: inputDecoration('পাসওয়ার্ড', Icons.lock_outline)
                   .copyWith(
@@ -197,55 +167,16 @@ class _LoginScreenState extends State<LoginScreen>
                 return null;
               },
             ),
-            const SizedBox(height: 13),
-            Row(
-              children: [
-                Checkbox(
-                  value: true,
-                  onChanged: (_) {},
-                  activeColor: brand,
-                  visualDensity: VisualDensity.compact,
-                ),
-                Text(
-                  'লগইন অবস্থায় রাখুন',
-                  style: GoogleFonts.manrope(color: muted, fontSize: 12),
-                ),
-                const Spacer(),
-                Text(
-                  'পাসওয়ার্ড ভুলে গেছেন?',
-                  style: GoogleFonts.manrope(color: brandDark, fontSize: 12),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 20),
             Consumer<AuthProvider>(
               builder: (context, auth, _) {
                 return SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: auth.isLoading ? null : _handleLogin,
-                    icon: auth.isLoading
-                        ? const SizedBox(
-                            width: 17,
-                            height: 17,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.login_rounded, size: 18),
-                    label: Text(
-                      auth.isLoading ? 'লগইন হচ্ছে...' : 'Login',
-                      style: GoogleFonts.manrope(fontWeight: FontWeight.w700),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: brand,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(46),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
+                  child: EduButton(
+                    text: auth.isLoading ? 'লগইন হচ্ছে...' : 'লগইন',
+                    isLoading: auth.isLoading,
+                    icon: Icons.login_rounded,
+                    onPressed: _handleLogin,
                   ),
                 );
               },
@@ -265,7 +196,7 @@ class _LoginScreenState extends State<LoginScreen>
                 );
               },
             ),
-            const Divider(color: line, height: 18),
+            const Divider(height: 24),
             Center(
               child: Wrap(
                 alignment: WrapAlignment.center,
@@ -274,16 +205,9 @@ class _LoginScreenState extends State<LoginScreen>
                     'নতুন এখানে? ',
                     style: GoogleFonts.manrope(color: muted, fontSize: 12),
                   ),
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).pushNamed('/signup'),
-                    child: Text(
-                      'নতুন একাউন্ট খুলুন',
-                      style: GoogleFonts.manrope(
-                        color: brandDark,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pushNamed('/signup'),
+                    child: const Text('নতুন একাউন্ট খুলুন'),
                   ),
                 ],
               ),

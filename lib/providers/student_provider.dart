@@ -105,6 +105,10 @@ class StudentProvider extends ChangeNotifier {
     return _service.getCourseDetails(courseId);
   }
 
+  Future<ApiResponse> rateCourse(int courseId, int rating) {
+    return _service.rateCourse(courseId, rating);
+  }
+
   Future<List<PackagePlan>> getPackages() => _service.getPackages();
 
   Future<void> loadTests() async {
@@ -156,6 +160,8 @@ class StudentProvider extends ChangeNotifier {
     }
   }
 
+  Future<Discussion?> getDiscussion(int id) => _service.getDiscussion(id);
+
   Future<bool> createDiscussion(String title, String content) async {
     final response = await _service.createDiscussion(title, content);
     if (response.success) {
@@ -183,15 +189,6 @@ class StudentProvider extends ChangeNotifier {
       notifyListeners();
     }
     return response.success;
-  }
-
-  Future<ApiResponse> updateProfile(Map<String, dynamic> data) async {
-    final response = await _service.updateProfile(data);
-    if (!response.success) {
-      _error = response.message;
-      notifyListeners();
-    }
-    return response;
   }
 
   Future<ApiResponse> submitTest(int testId, Map<int, int> answers) async {

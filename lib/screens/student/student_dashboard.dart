@@ -6,7 +6,9 @@ import '../../providers/student_provider.dart';
 import '../../models/user.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/dashboard_widgets.dart';
 import '../../widgets/my_bug_reports.dart';
+import '../../widgets/profile_form.dart';
 import '../../widgets/role_bottom_navigation.dart';
 import '../../utils/external_links.dart';
 import 'course_details_screen.dart';
@@ -122,86 +124,19 @@ class _StudentDashboardState extends State<StudentDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'স্বাগতম! 👋',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        auth.user?.name ?? 'শিক্ষার্থী',
-                        style: Theme.of(context).textTheme.headlineLarge,
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withAlpha(25),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.notifications_outlined,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-              ],
+            DashboardHeader(
+              name: auth.user?.name ?? 'শিক্ষার্থী',
+              roleLabel: 'শিক্ষার্থী ড্যাশবোর্ড',
+              icon: Icons.school_rounded,
             ),
             const SizedBox(height: 24),
-
-            // Motivation Card
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: AppTheme.primaryGradient,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primaryColor.withAlpha(77),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.auto_awesome, color: Colors.white, size: 28),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'গতি ধরে রাখুন!',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'পড়ার পথ পরিষ্কার হলে অনুপ্রেরণাও দীর্ঘস্থায়ী হয়',
-                    style: TextStyle(
-                      color: Colors.white.withAlpha(204),
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
+            const DashboardHighlightCard(
+              icon: Icons.auto_stories_rounded,
+              title: 'গতি ধরে রাখুন!',
+              subtitle: 'আপনার কোর্স, পরীক্ষা ও অগ্রগতি এক জায়গায় দেখুন',
             ),
             const SizedBox(height: 24),
-
-            // Stats Grid
-            Text(
-              'আপনার পরিসংখ্যান',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+            const DashboardSectionTitle('আপনার পরিসংখ্যান'),
             const SizedBox(height: 12),
             GridView.count(
               crossAxisCount: 2,
@@ -209,16 +144,16 @@ class _StudentDashboardState extends State<StudentDashboard> {
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: 1.3,
+              mainAxisExtent: 152,
               children: [
                 StatCard(
-                  icon: Icons.quiz_rounded,
+                  icon: Icons.assignment_rounded,
                   label: 'সম্পন্ন টেস্ট',
                   value: '${student.dashboardData?['tests_completed'] ?? 0}',
                   iconColor: AppTheme.primaryColor,
                 ),
                 StatCard(
-                  icon: Icons.trending_up_rounded,
+                  icon: Icons.bar_chart_rounded,
                   label: 'গড় স্কোর',
                   value: '${student.dashboardData?['avg_score'] ?? 0}%',
                   iconColor: AppTheme.accentTeal,
@@ -226,7 +161,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 StatCard(
                   icon: Icons.emoji_events_rounded,
                   label: 'র‍্যাঙ্ক',
-                  value: '#${student.dashboardData?['rank'] ?? '-'}',
+                  value: student.dashboardData?['rank'] == null
+                      ? '—'
+                      : '#${student.dashboardData!['rank']}',
                   iconColor: AppTheme.accentOrange,
                 ),
                 StatCard(
@@ -239,22 +176,18 @@ class _StudentDashboardState extends State<StudentDashboard> {
             ),
             const SizedBox(height: 24),
 
-            // Quick Actions
-            Text(
-              'দ্রুত অ্যাকশন',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+            const DashboardSectionTitle('দ্রুত অ্যাকশন'),
             const SizedBox(height: 12),
-            _buildQuickAction(
-              icon: Icons.play_circle_filled_rounded,
+            DashboardQuickAction(
+              icon: Icons.assignment_rounded,
               title: 'মক টেস্ট দিন',
               subtitle: 'নতুন পরীক্ষায় অংশগ্রহণ করুন',
               color: AppTheme.primaryColor,
               onTap: () => setState(() => _currentIndex = 2),
             ),
             const SizedBox(height: 10),
-            _buildQuickAction(
-              icon: Icons.analytics_rounded,
+            DashboardQuickAction(
+              icon: Icons.bar_chart_rounded,
               title: 'পারফরম্যান্স দেখুন',
               subtitle: 'আপনার অগ্রগতি বিশ্লেষণ',
               color: AppTheme.accentTeal,
@@ -262,7 +195,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   Navigator.of(context).pushNamed('/student/performance'),
             ),
             const SizedBox(height: 10),
-            _buildQuickAction(
+            DashboardQuickAction(
               icon: Icons.forum_rounded,
               title: 'আলোচনা করুন',
               subtitle: 'সহপাঠীদের সাথে প্রশ্নোত্তর',
@@ -271,8 +204,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   Navigator.of(context).pushNamed('/student/discussions'),
             ),
             const SizedBox(height: 10),
-            _buildQuickAction(
-              icon: Icons.workspace_premium_rounded,
+            DashboardQuickAction(
+              icon: Icons.inventory_2_rounded,
               title: 'প্যাকেজ দেখুন',
               subtitle: 'প্রিমিয়াম ফিচার আনলক করুন',
               color: AppTheme.accentPink,
@@ -280,47 +213,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildQuickAction({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    VoidCallback? onTap,
-  }) {
-    return EduCard(
-      onTap: onTap,
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withAlpha(25),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 2),
-                Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-              ],
-            ),
-          ),
-          Icon(
-            Icons.arrow_forward_ios_rounded,
-            size: 16,
-            color: AppTheme.textMuted,
-          ),
-        ],
       ),
     );
   }
@@ -364,16 +256,16 @@ class _StudentDashboardState extends State<StudentDashboard> {
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: 1.3,
+            mainAxisExtent: 152,
             children: [
               StatCard(
-                icon: Icons.trending_up_rounded,
+                icon: Icons.bar_chart_rounded,
                 label: 'গড় স্কোর',
                 value: '${dashboard?['avg_score'] ?? 0}%',
                 iconColor: AppTheme.primaryColor,
               ),
               StatCard(
-                icon: Icons.quiz_rounded,
+                icon: Icons.assignment_rounded,
                 label: 'সম্পন্ন টেস্ট',
                 value: '${dashboard?['tests_completed'] ?? 0}',
                 iconColor: AppTheme.accentTeal,
@@ -381,7 +273,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
               StatCard(
                 icon: Icons.emoji_events_rounded,
                 label: 'র‍্যাঙ্ক',
-                value: '#${dashboard?['rank'] ?? '-'}',
+                value: dashboard?['rank'] == null
+                    ? '—'
+                    : '#${dashboard!['rank']}',
                 iconColor: AppTheme.accentOrange,
               ),
               StatCard(
@@ -447,56 +341,13 @@ class _StudentDashboardState extends State<StudentDashboard> {
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 32),
-          EduCard(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                TextFormField(
-                  controller: _nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'নাম',
-                    prefixIcon: Icon(Icons.person_outline, size: 20),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  initialValue: auth.user?.email,
-                  readOnly: true,
-                  decoration: const InputDecoration(
-                    labelText: 'ইমেইল',
-                    prefixIcon: Icon(Icons.email_outlined, size: 20),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _phoneCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'ফোন',
-                    prefixIcon: Icon(Icons.phone_outlined, size: 20),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _institutionCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'প্রতিষ্ঠান',
-                    prefixIcon: Icon(Icons.account_balance_outlined, size: 20),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: EduButton(
-                    text: 'আপডেট করুন',
-                    icon: Icons.save_rounded,
-                    isLoading: _isSavingProfile,
-                    onPressed: _isSavingProfile
-                        ? null
-                        : () => _saveProfile(auth),
-                  ),
-                ),
-              ],
-            ),
+          ProfileForm(
+            nameController: _nameCtrl!,
+            phoneController: _phoneCtrl!,
+            institutionController: _institutionCtrl!,
+            email: auth.user?.email,
+            isSaving: _isSavingProfile,
+            onSave: () => _saveProfile(auth),
           ),
           const SizedBox(height: 16),
           EduCard(
@@ -505,7 +356,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
             child: Row(
               children: [
                 const Icon(
-                  Icons.workspace_premium_outlined,
+                  Icons.inventory_2_outlined,
                   color: AppTheme.textSecondary,
                   size: 22,
                 ),
@@ -773,7 +624,7 @@ class _InlineTestsViewState extends State<_InlineTestsView> {
               ? const LoadingIndicator(message: 'টেস্ট লোড হচ্ছে...')
               : student.tests.isEmpty
               ? EmptyState(
-                  icon: Icons.quiz_rounded,
+                  icon: Icons.assignment_rounded,
                   title: student.error == null
                       ? 'কোনো মক টেস্ট নেই'
                       : 'পরীক্ষা লোড করা যায়নি',

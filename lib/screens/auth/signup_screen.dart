@@ -87,205 +87,221 @@ class _SignupScreenState extends State<SignupScreen>
           padding: const EdgeInsets.all(24),
           child: FadeTransition(
             opacity: _fadeAnim,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'নতুন একাউন্ট',
-                  style: Theme.of(context).textTheme.displayMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'EduMate-তে যোগ দিয়ে প্রস্তুতি শুরু করুন',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 32),
-                EduCard(
-                  padding: const EdgeInsets.all(24),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        TextFormField(
-                          controller: _nameController,
-                          decoration: const InputDecoration(
-                            labelText: 'নাম *',
-                            hintText: 'আপনার পূর্ণ নাম',
-                            prefixIcon: Icon(Icons.person_outline, size: 20),
-                          ),
-                          validator: (v) =>
-                              (v == null || v.isEmpty) ? 'নাম দিন' : null,
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
-                            labelText: 'ইমেইল *',
-                            hintText: 'আপনার ইমেইল দিন',
-                            prefixIcon: Icon(Icons.email_outlined, size: 20),
-                          ),
-                          validator: (v) {
-                            if (v == null || v.isEmpty) return 'ইমেইল দিন';
-                            if (!v.contains('@')) return 'সঠিক ইমেইল দিন';
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _phoneController,
-                          keyboardType: TextInputType.phone,
-                          decoration: const InputDecoration(
-                            labelText: 'ফোন নম্বর',
-                            hintText: '01XXXXXXXXX',
-                            prefixIcon: Icon(Icons.phone_outlined, size: 20),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _institutionController,
-                          decoration: const InputDecoration(
-                            labelText: 'প্রতিষ্ঠান',
-                            hintText: 'আপনার শিক্ষা প্রতিষ্ঠান',
-                            prefixIcon: Icon(
-                              Icons.account_balance_outlined,
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: _obscurePassword,
-                          decoration: InputDecoration(
-                            labelText: 'পাসওয়ার্ড *',
-                            hintText: 'কমপক্ষে ৬ অক্ষর',
-                            prefixIcon: const Icon(
-                              Icons.lock_outline,
-                              size: 20,
-                            ),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility_off_outlined
-                                    : Icons.visibility_outlined,
-                                size: 20,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'নতুন একাউন্ট',
+                      style: Theme.of(context).textTheme.displayMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'EduMate-তে যোগ দিয়ে প্রস্তুতি শুরু করুন',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 32),
+                    EduCard(
+                      padding: const EdgeInsets.all(24),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          children: [
+                            TextFormField(
+                              controller: _nameController,
+                              decoration: const InputDecoration(
+                                labelText: 'নাম *',
+                                hintText: 'আপনার পূর্ণ নাম',
+                                prefixIcon: Icon(
+                                  Icons.person_outline,
+                                  size: 20,
+                                ),
                               ),
-                              onPressed: () => setState(
-                                () => _obscurePassword = !_obscurePassword,
+                              validator: (v) =>
+                                  (v == null || v.isEmpty) ? 'নাম দিন' : null,
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _emailController,
+                              keyboardType: TextInputType.emailAddress,
+                              decoration: const InputDecoration(
+                                labelText: 'ইমেইল *',
+                                hintText: 'আপনার ইমেইল দিন',
+                                prefixIcon: Icon(
+                                  Icons.email_outlined,
+                                  size: 20,
+                                ),
+                              ),
+                              validator: (v) {
+                                if (v == null || v.isEmpty) return 'ইমেইল দিন';
+                                if (!v.contains('@')) return 'সঠিক ইমেইল দিন';
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _phoneController,
+                              keyboardType: TextInputType.phone,
+                              decoration: const InputDecoration(
+                                labelText: 'ফোন নম্বর',
+                                hintText: '01XXXXXXXXX',
+                                prefixIcon: Icon(
+                                  Icons.phone_outlined,
+                                  size: 20,
+                                ),
                               ),
                             ),
-                          ),
-                          validator: (v) {
-                            if (v == null || v.isEmpty) return 'পাসওয়ার্ড দিন';
-                            if (v.length < 6) {
-                              return 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষর';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _confirmPasswordController,
-                          obscureText: _obscureConfirm,
-                          decoration: InputDecoration(
-                            labelText: 'পাসওয়ার্ড নিশ্চিত করুন *',
-                            hintText: 'পাসওয়ার্ড আবার দিন',
-                            prefixIcon: const Icon(
-                              Icons.lock_outline,
-                              size: 20,
-                            ),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscureConfirm
-                                    ? Icons.visibility_off_outlined
-                                    : Icons.visibility_outlined,
-                                size: 20,
-                              ),
-                              onPressed: () => setState(
-                                () => _obscureConfirm = !_obscureConfirm,
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _institutionController,
+                              decoration: const InputDecoration(
+                                labelText: 'প্রতিষ্ঠান',
+                                hintText: 'আপনার শিক্ষা প্রতিষ্ঠান',
+                                prefixIcon: Icon(
+                                  Icons.account_balance_outlined,
+                                  size: 20,
+                                ),
                               ),
                             ),
-                          ),
-                          validator: (v) {
-                            if (v != _passwordController.text) {
-                              return 'পাসওয়ার্ড মিলছে না';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Error
-                        Consumer<AuthProvider>(
-                          builder: (context, auth, _) {
-                            if (auth.error != null) {
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
-                                child: Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.error.withAlpha(25),
-                                    borderRadius: BorderRadius.circular(10),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _passwordController,
+                              obscureText: _obscurePassword,
+                              decoration: InputDecoration(
+                                labelText: 'পাসওয়ার্ড *',
+                                hintText: 'কমপক্ষে ৬ অক্ষর',
+                                prefixIcon: const Icon(
+                                  Icons.lock_outline,
+                                  size: 20,
+                                ),
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscurePassword
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    size: 20,
                                   ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.error_outline,
-                                        color: AppTheme.error,
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          auth.error!,
-                                          style: const TextStyle(
-                                            color: AppTheme.error,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                                  onPressed: () => setState(
+                                    () => _obscurePassword = !_obscurePassword,
                                   ),
                                 ),
-                              );
-                            }
-                            return const SizedBox.shrink();
-                          },
-                        ),
-
-                        Consumer<AuthProvider>(
-                          builder: (context, auth, _) {
-                            return SizedBox(
-                              width: double.infinity,
-                              child: EduButton(
-                                text: 'একাউন্ট তৈরি করুন',
-                                isLoading: auth.isLoading,
-                                onPressed: _handleSignup,
-                                icon: Icons.person_add_rounded,
                               ),
-                            );
-                          },
+                              validator: (v) {
+                                if (v == null || v.isEmpty) {
+                                  return 'পাসওয়ার্ড দিন';
+                                }
+                                if (v.length < 6) {
+                                  return 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষর';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _confirmPasswordController,
+                              obscureText: _obscureConfirm,
+                              decoration: InputDecoration(
+                                labelText: 'পাসওয়ার্ড নিশ্চিত করুন *',
+                                hintText: 'পাসওয়ার্ড আবার দিন',
+                                prefixIcon: const Icon(
+                                  Icons.lock_outline,
+                                  size: 20,
+                                ),
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscureConfirm
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    size: 20,
+                                  ),
+                                  onPressed: () => setState(
+                                    () => _obscureConfirm = !_obscureConfirm,
+                                  ),
+                                ),
+                              ),
+                              validator: (v) {
+                                if (v != _passwordController.text) {
+                                  return 'পাসওয়ার্ড মিলছে না';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Error
+                            Consumer<AuthProvider>(
+                              builder: (context, auth, _) {
+                                if (auth.error != null) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 16),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.error.withAlpha(25),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.error_outline,
+                                            color: AppTheme.error,
+                                            size: 18,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              auth.error!,
+                                              style: const TextStyle(
+                                                color: AppTheme.error,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return const SizedBox.shrink();
+                              },
+                            ),
+
+                            Consumer<AuthProvider>(
+                              builder: (context, auth, _) {
+                                return SizedBox(
+                                  width: double.infinity,
+                                  child: EduButton(
+                                    text: 'একাউন্ট তৈরি করুন',
+                                    isLoading: auth.isLoading,
+                                    onPressed: _handleSignup,
+                                    icon: Icons.person_add_rounded,
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'একাউন্ট আছে? ',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('লগইন করুন'),
                         ),
                       ],
                     ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'একাউন্ট আছে? ',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('লগইন করুন'),
-                    ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
         ),

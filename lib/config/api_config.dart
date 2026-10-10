@@ -26,7 +26,6 @@ class ApiConfig {
   static const String studentTests = '/api/student/tests';
   static const String studentSubmitTest = '/api/student/tests/submit';
   static const String studentPerformance = '/api/student/performance';
-  static const String studentProfile = '/api/student/profile';
   static const String studentReportBug = '/api/student/report-bug';
 
   // Instructor endpoints
@@ -34,7 +33,6 @@ class ApiConfig {
   static const String instructorCourses = '/api/instructor/courses';
   static const String instructorExams = '/api/instructor/exams';
   static const String instructorStudents = '/api/instructor/students';
-  static const String instructorProfile = '/api/instructor/profile';
   static const String instructorReportBug = '/api/instructor/report-bug';
 
   // Admin endpoints
