@@ -108,8 +108,11 @@ class StudentService {
     return null;
   }
 
-  Future<List<Discussion>> getDiscussions() async {
-    final response = await _api.get(ApiConfig.discussions);
+  Future<List<Discussion>> getDiscussions({int? courseId}) async {
+    final response = await _api.get(
+      ApiConfig.discussions,
+      queryParams: courseId == null ? null : {'course_id': '$courseId'},
+    );
     if (response.success && response.data != null) {
       final list = response.data is Map
           ? (response.data['discussions'] as List<dynamic>? ?? [])
@@ -118,7 +121,7 @@ class StudentService {
           .map((d) => Discussion.fromJson(d as Map<String, dynamic>))
           .toList();
     }
-    return [];
+    throw Exception(response.message ?? 'আলোচনা লোড করা যায়নি');
   }
 
   Future<Discussion?> getDiscussion(int id) async {
@@ -129,10 +132,16 @@ class StudentService {
     return null;
   }
 
-  Future<ApiResponse> createDiscussion(String title, String content) async {
+  Future<ApiResponse> createDiscussion(
+    String title,
+    String content, {
+    int? courseId,
+  }) async {
+    final body = <String, dynamic>{'title': title, 'content': content};
+    if (courseId != null) body['course_id'] = courseId;
     return await _api.post(
       ApiConfig.discussions,
-      body: {'title': title, 'content': content},
+      body: body,
     );
   }
 

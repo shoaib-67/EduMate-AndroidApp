@@ -110,6 +110,9 @@ class EduMateApp extends StatelessWidget {
       case '/instructor/create-exam':
         page = const InstructorExamCoursePickerScreen();
         break;
+      case '/instructor/discussions':
+        page = const DiscussionScreen(isInstructor: true);
+        break;
       case '/instructor/report-bug':
         page = const ReportBugScreen(isInstructor: true);
         break;

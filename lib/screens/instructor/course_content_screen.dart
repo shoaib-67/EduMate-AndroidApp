@@ -8,6 +8,8 @@ import '../../theme/app_theme.dart';
 import '../../utils/external_links.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/role_bottom_navigation.dart';
+import '../student/discussion_screen.dart';
+import 'instructor_exams_screen.dart';
 
 class InstructorCourseContentScreen extends StatefulWidget {
   final Course course;
@@ -20,15 +22,47 @@ class InstructorCourseContentScreen extends StatefulWidget {
 }
 
 class _InstructorCourseContentScreenState
-    extends State<InstructorCourseContentScreen> {
+    extends State<InstructorCourseContentScreen>
+    with SingleTickerProviderStateMixin {
   List<CourseContent> _content = [];
   bool _loading = true;
   bool _loadFailed = false;
+  late final TabController _tabController;
+  late Future<List<Map<String, dynamic>>> _exams;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 5, vsync: this)
+      ..addListener(() => setState(() {}));
+    _reloadExams();
     _loadContent();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _reloadExams() {
+    _exams = context.read<InstructorProvider>().getCourseExams(
+      widget.course.id!,
+    );
+  }
+
+  Future<void> _openExams({bool create = false}) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => InstructorExamsScreen(
+          course: widget.course,
+          openCreateOnLoad: create,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    setState(_reloadExams);
+    context.read<InstructorProvider>().loadDashboard();
   }
 
   Future<void> _loadContent() async {
@@ -84,7 +118,6 @@ class _InstructorCourseContentScreenState
                       value: 'video',
                       child: Text('রেকর্ডেড ভিডিও'),
                     ),
-                    DropdownMenuItem(value: 'exam', child: Text('পরীক্ষা')),
                     DropdownMenuItem(value: 'live', child: Text('লাইভ ক্লাস')),
                   ],
                   onChanged: (value) =>
@@ -94,7 +127,7 @@ class _InstructorCourseContentScreenState
                 TextField(
                   controller: url,
                   decoration: const InputDecoration(
-                    labelText: 'লিংক (PDF/ভিডিও/পরীক্ষা/লাইভ ক্লাস)',
+                    labelText: 'লিংক (PDF/ভিডিও/লাইভ ক্লাস)',
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -173,6 +206,133 @@ class _InstructorCourseContentScreenState
     }
   }
 
+  Widget _examTab() {
+    final links = _content.where((item) => item.type == 'exam').toList();
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _exams,
+      builder: (context, snapshot) {
+        final exams = snapshot.data ?? [];
+        return ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            FilledButton.icon(
+              onPressed: () => _openExams(create: true),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('নতুন পরীক্ষা তৈরি করুন'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => _openExams(),
+              icon: const Icon(Icons.assignment_outlined),
+              label: const Text('পরীক্ষা পরিচালনা করুন'),
+            ),
+            const SizedBox(height: 24),
+            if (snapshot.connectionState != ConnectionState.done)
+              const LoadingIndicator()
+            else if (snapshot.hasError) ...[
+              const Text('পরীক্ষা লোড করা যায়নি'),
+              TextButton.icon(
+                onPressed: () => setState(_reloadExams),
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('আবার চেষ্টা করুন'),
+              ),
+            ] else if (exams.isEmpty && links.isEmpty)
+              const EmptyState(
+                icon: Icons.assignment_outlined,
+                title: 'এখনও কোনো পরীক্ষা নেই',
+                subtitle: 'উপরে পরীক্ষা তৈরি করুন চাপ দিয়ে MCQ যোগ করুন',
+              )
+            else ...[
+              for (final exam in exams)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: EduCard(
+                    onTap: () => _openExams(),
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.assignment_outlined,
+                          color: AppTheme.primaryColor,
+                          size: 28,
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${exam['title']}',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              Text(
+                                exam['published'] == 1 ||
+                                        exam['published'] == true
+                                    ? 'প্রকাশিত'
+                                    : 'লুকানো',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right_rounded),
+                      ],
+                    ),
+                  ),
+                ),
+              if (links.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'পরীক্ষার লিংক',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 12),
+                for (final link in links)
+                  ListTile(
+                    leading: const Icon(Icons.open_in_new),
+                    title: Text(link.title),
+                    subtitle: Text(link.description ?? ''),
+                    onTap: () => openExternalUrl(link.url),
+                    trailing: IconButton(
+                      tooltip: 'পরীক্ষার লিংক মুছুন',
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () => _deleteContent(link),
+                    ),
+                  ),
+              ],
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteContent(CourseContent item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('কনটেন্ট মুছবেন?'),
+        content: Text('“${item.title}” মুছে ফেলা হবে।'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('বাতিল'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('মুছুন'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final ok = await context.read<InstructorProvider>().deleteCourseContent(
+      widget.course.id!,
+      item.id,
+    );
+    if (ok && mounted) _loadContent();
+  }
+
   Widget _contentList(String type) {
     final items = _content.where((item) => item.type == type).toList();
     if (items.isEmpty) {
@@ -219,30 +379,7 @@ class _InstructorCourseContentScreenState
                 ),
                 IconButton(
                   tooltip: 'কনটেন্ট মুছুন',
-                  onPressed: () async {
-                    final confirmed = await showDialog<bool>(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('কনটেন্ট মুছবেন?'),
-                        content: Text('“${item.title}” মুছে ফেলা হবে।'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, false),
-                            child: const Text('বাতিল'),
-                          ),
-                          FilledButton(
-                            onPressed: () => Navigator.pop(ctx, true),
-                            child: const Text('মুছুন'),
-                          ),
-                        ],
-                      ),
-                    );
-                    if (confirmed != true || !context.mounted) return;
-                    final ok = await context
-                        .read<InstructorProvider>()
-                        .deleteCourseContent(widget.course.id!, item.id);
-                    if (ok && mounted) _loadContent();
-                  },
+                  onPressed: () => _deleteContent(item),
                   icon: const Icon(Icons.delete_outline),
                 ),
               ],
@@ -265,14 +402,24 @@ class _InstructorCourseContentScreenState
         actions: [
           IconButton(
             tooltip: 'কনটেন্ট রিফ্রেশ করুন',
-            onPressed: _loading ? null : _loadContent,
+            onPressed: _loading
+                ? null
+                : () {
+                    _loadContent();
+                    setState(_reloadExams);
+                  },
             icon: const Icon(Icons.refresh_rounded),
           ),
-          IconButton(
-            tooltip: 'কনটেন্ট যোগ করুন',
-            onPressed: _addContent,
-            icon: const Icon(Icons.add_circle_outline),
-          ),
+          if (_tabController.index != 3)
+            IconButton(
+              tooltip: _tabController.index == 4
+                  ? 'পরীক্ষা তৈরি করুন'
+                  : 'কনটেন্ট যোগ করুন',
+              onPressed: _tabController.index == 4
+                  ? () => _openExams(create: true)
+                  : _addContent,
+              icon: const Icon(Icons.add_circle_outline),
+            ),
         ],
       ),
       body: _loading
@@ -284,31 +431,36 @@ class _InstructorCourseContentScreenState
               actionText: 'আবার চেষ্টা করুন',
               onAction: _loadContent,
             )
-          : DefaultTabController(
-              length: 4,
-              child: Column(
-                children: [
-                  const TabBar(
-                    isScrollable: true,
-                    tabs: [
-                      Tab(text: 'PDF / নোট'),
-                      Tab(text: 'ভিডিও'),
-                      Tab(text: 'পরীক্ষা'),
-                      Tab(text: 'লাইভ ক্লাস'),
+          : Column(
+              children: [
+                TabBar(
+                  controller: _tabController,
+                  isScrollable: true,
+                  tabs: [
+                    Tab(text: 'PDF / নোট'),
+                    Tab(text: 'ভিডিও'),
+                    Tab(text: 'লাইভ ক্লাস'),
+                    Tab(text: 'আলোচনা'),
+                    Tab(text: 'পরীক্ষা'),
+                  ],
+                ),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _contentList('pdf'),
+                      _contentList('video'),
+                      _contentList('live'),
+                      DiscussionScreen(
+                        courseId: widget.course.id!,
+                        isInstructor: true,
+                        embedded: true,
+                      ),
+                      _examTab(),
                     ],
                   ),
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        _contentList('pdf'),
-                        _contentList('video'),
-                        _contentList('exam'),
-                        _contentList('live'),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
     );
   }

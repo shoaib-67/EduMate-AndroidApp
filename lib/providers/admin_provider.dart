@@ -85,13 +85,18 @@ class AdminProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> deleteUser(int id) async {
+  Future<ApiResponse> deleteUser(int id) async {
     final response = await _service.deleteUser(id);
     if (response.success) {
       await loadUsers();
-      return true;
     }
-    return false;
+    return response;
+  }
+
+  Future<ApiResponse> setUserFrozen(int id, bool isFrozen) async {
+    final response = await _service.setUserFrozen(id, isFrozen);
+    if (response.success) await loadUsers();
+    return response;
   }
 
   Future<ApiResponse> createUser(Map<String, dynamic> data) async {

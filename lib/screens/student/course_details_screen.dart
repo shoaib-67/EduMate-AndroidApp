@@ -7,6 +7,7 @@ import '../../providers/student_provider.dart';
 import '../../utils/external_links.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/role_bottom_navigation.dart';
+import 'discussion_screen.dart';
 
 class StudentCourseDetailsScreen extends StatefulWidget {
   final Course course;
@@ -62,14 +63,17 @@ class _StudentCourseDetailsScreenState
   }
 
   Future<void> _rateCourse(int rating) async {
-    if (_ratingSaving || widget.course.id == null) return;
+    if (_ratingSaving || _myRating != null || widget.course.id == null) return;
     setState(() => _ratingSaving = true);
     final response = await context.read<StudentProvider>().rateCourse(
       widget.course.id!,
       rating,
     );
     if (!mounted) return;
-    setState(() => _ratingSaving = false);
+    setState(() {
+      _ratingSaving = false;
+      if (response.success) _myRating = rating;
+    });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -79,7 +83,6 @@ class _StudentCourseDetailsScreenState
         ),
       ),
     );
-    if (response.success) await _load();
   }
 
   IconData _icon(String type) {
@@ -287,7 +290,7 @@ class _StudentCourseDetailsScreenState
               onAction: _load,
             )
           : DefaultTabController(
-              length: 4,
+              length: 5,
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
@@ -298,40 +301,40 @@ class _StudentCourseDetailsScreenState
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                     const SizedBox(height: 12),
-                    Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 8,
-                      children: [
-                        Text(
-                          _rating == null
-                              ? 'এখনও কোনো রেটিং নেই'
-                              : 'রেটিং ${_rating!.toStringAsFixed(1)}/5 ($_ratingCount)',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        for (var star = 1; star <= 5; star++)
-                          IconButton(
-                            tooltip: '$star তারকা রেটিং দিন',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: _ratingSaving
-                                ? null
-                                : () => _rateCourse(star),
-                            icon: Icon(
-                              star <= (_myRating ?? 0)
-                                  ? Icons.star_rounded
-                                  : Icons.star_outline_rounded,
-                              color: Colors.amber.shade700,
-                            ),
+                    if (_myRating == null)
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        children: [
+                          Text(
+                            _rating == null
+                                ? 'এখনও কোনো রেটিং নেই'
+                                : 'রেটিং ${_rating!.toStringAsFixed(1)}/5 ($_ratingCount)',
+                            style: Theme.of(context).textTheme.bodyMedium,
                           ),
-                      ],
-                    ),
+                          for (var star = 1; star <= 5; star++)
+                            IconButton(
+                              tooltip: '$star তারকা রেটিং দিন',
+                              visualDensity: VisualDensity.compact,
+                              onPressed: _ratingSaving
+                                  ? null
+                                  : () => _rateCourse(star),
+                              icon: Icon(
+                                Icons.star_outline_rounded,
+                                color: Colors.amber.shade700,
+                              ),
+                            ),
+                        ],
+                      ),
                     const SizedBox(height: 20),
                     const TabBar(
                       isScrollable: true,
                       tabs: [
                         Tab(text: 'PDF / নোট'),
                         Tab(text: 'ভিডিও'),
-                        Tab(text: 'পরীক্ষা'),
                         Tab(text: 'লাইভ ক্লাস'),
+                        Tab(text: 'আলোচনা'),
+                        Tab(text: 'পরীক্ষা'),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -340,8 +343,12 @@ class _StudentCourseDetailsScreenState
                         children: [
                           _contentList('pdf'),
                           _contentList('video'),
-                          _examList(),
                           _contentList('live'),
+                          DiscussionScreen(
+                            courseId: widget.course.id!,
+                            embedded: true,
+                          ),
+                          _examList(),
                         ],
                       ),
                     ),

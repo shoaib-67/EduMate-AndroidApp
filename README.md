@@ -13,7 +13,8 @@ EduMate is an admission-preparation and learning platform with separate experien
 - Study using multiple content types, including PDFs, videos, live classes, and exams
 - Take timed practice tests, submit answers, and receive performance results
 - Review test history and analyze scores to identify areas for improvement
-- Create discussion topics and reply to other learners in the community
+- Use the dashboard quick action for general student discussions, or start and reply to threads inside an enrolled course
+- Read and reply to instructor answers in course discussion threads
 - Submit bug reports or other issues directly from the application
 - Manage personal information, including name, phone number, and institution
 - Browse learning packages and compare the available package features
@@ -25,13 +26,14 @@ EduMate is an admission-preparation and learning platform with separate experien
 - Add, view, and remove course materials such as PDFs, videos, live classes, and exams
 - Create practice exams for student assessment
 - View enrolled students and review student performance results
+- Start, search, and reply to discussions in assigned courses; general student discussions stay private to students
 - Review bug reports submitted by students and instructors
 - Update instructor profile information
 
 ### Administrators
 
 - Dashboard with platform-wide totals for users, students, instructors, courses, exams, and bug reports
-- View, create, and delete user accounts
+- View, create, freeze, unfreeze, and remove user accounts; frozen accounts cannot sign in or use existing sessions
 - Manage user roles and control access to student, instructor, and administrator features
 - Review bug reports, update their statuses, and monitor issue summaries
 - Create and manage courses, assign instructors and students, and manage learning packages

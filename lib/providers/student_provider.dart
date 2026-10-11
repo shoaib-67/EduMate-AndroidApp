@@ -162,6 +162,9 @@ class StudentProvider extends ChangeNotifier {
 
   Future<Discussion?> getDiscussion(int id) => _service.getDiscussion(id);
 
+  Future<List<Discussion>> getCourseDiscussions(int courseId) =>
+      _service.getDiscussions(courseId: courseId);
+
   Future<bool> createDiscussion(String title, String content) async {
     final response = await _service.createDiscussion(title, content);
     if (response.success) {
@@ -171,6 +174,23 @@ class StudentProvider extends ChangeNotifier {
     _error = response.message;
     notifyListeners();
     return false;
+  }
+
+  Future<bool> createCourseDiscussion(
+    int courseId,
+    String title,
+    String content,
+  ) async {
+    final response = await _service.createDiscussion(
+      title,
+      content,
+      courseId: courseId,
+    );
+    if (!response.success) {
+      _error = response.message;
+      notifyListeners();
+    }
+    return response.success;
   }
 
   Future<bool> replyToDiscussion(int id, String content) async {

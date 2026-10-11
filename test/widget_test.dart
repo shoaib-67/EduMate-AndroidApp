@@ -3,18 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:edumate/main.dart';
 import 'package:edumate/models/course.dart';
+import 'package:edumate/models/course_content.dart';
 import 'package:edumate/models/discussion.dart';
 import 'package:edumate/models/mock_test.dart';
 import 'package:edumate/models/package_plan.dart';
 import 'package:edumate/models/instructor_student_result.dart';
 import 'package:edumate/models/user.dart';
 import 'package:edumate/screens/instructor/instructor_exams_screen.dart';
+import 'package:edumate/screens/instructor/course_content_screen.dart';
 import 'package:edumate/screens/instructor/instructor_dashboard.dart';
 import 'package:edumate/screens/admin/admin_courses_screen.dart';
 import 'package:edumate/screens/admin/admin_dashboard.dart';
 import 'package:edumate/screens/student/student_dashboard.dart';
 import 'package:edumate/screens/student/packages_screen.dart';
 import 'package:edumate/screens/student/discussion_screen.dart';
+import 'package:edumate/screens/student/course_details_screen.dart';
 import 'package:edumate/screens/student/test_taking_screen.dart';
 import 'package:edumate/providers/admin_provider.dart';
 import 'package:edumate/providers/auth_provider.dart';
@@ -96,9 +99,10 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
+    final provider = _ExamTestProvider();
     await tester.pumpWidget(
-      ChangeNotifierProvider<InstructorProvider>(
-        create: (_) => _ExamTestProvider(),
+      ChangeNotifierProvider<InstructorProvider>.value(
+        value: provider,
         child: MaterialApp(
           home: InstructorExamsScreen(
             course: Course(id: 1, title: 'Physics'),
@@ -144,6 +148,56 @@ void main() {
       scrollable: find.byType(Scrollable).last,
     );
     expect(find.textContaining('Two plus two?'), findsWidgets);
+    await tester.tap(find.text('পরীক্ষা প্রকাশ করুন'));
+    await tester.pumpAndSettle();
+    expect(provider.createdCourseId, 1);
+    expect(provider.createdExam?['title'], 'Weekly Quiz');
+    expect((provider.createdExam?['questions'] as List).length, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Teacher can create an exam from a course exam tab', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<InstructorProvider>(
+            create: (_) => _CourseExamTestProvider(),
+          ),
+          ChangeNotifierProvider<StudentProvider>(
+            create: (_) => _CourseDiscussionTestProvider(),
+          ),
+        ],
+        child: MaterialApp(
+          home: InstructorCourseContentScreen(
+            course: Course(id: 1, title: 'Physics'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final teacherTabs = tester.widgetList<Tab>(
+      find.descendant(of: find.byType(TabBar), matching: find.byType(Tab)),
+    );
+    expect(teacherTabs.last.text, 'পরীক্ষা');
+    await tester.ensureVisible(find.text('পরীক্ষা'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('পরীক্ষা'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Weekly Quiz'), findsOneWidget);
+    expect(find.text('নতুন পরীক্ষা তৈরি করুন'), findsOneWidget);
+    expect(find.byTooltip('পরীক্ষা তৈরি করুন'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('পরীক্ষা তৈরি করুন'));
+    await tester.pumpAndSettle();
+    expect(find.text('পরীক্ষার তথ্য'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -296,6 +350,46 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Admin can freeze, unfreeze, and remove a user', (
+    WidgetTester tester,
+  ) async {
+    final admin = _AdminRoleTestProvider();
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => AuthProvider(ApiService())),
+          ChangeNotifierProvider<AdminProvider>.value(value: admin),
+        ],
+        child: const MaterialApp(home: AdminDashboard(initialTab: 1)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ফ্রিজ করুন'));
+    await tester.pumpAndSettle();
+    expect(admin.isFrozen, isTrue);
+    expect(find.text('ফ্রিজ করা'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('আনফ্রিজ করুন'));
+    await tester.pumpAndSettle();
+    expect(admin.isFrozen, isFalse);
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('মুছুন'));
+    await tester.pumpAndSettle();
+    expect(find.text('ব্যবহারকারী মুছবেন?'), findsOneWidget);
+    await tester.tap(find.text('মুছুন').last);
+    await tester.pumpAndSettle();
+    expect(admin.removed, isTrue);
+    expect(find.text('কোনো ব্যবহারকারী নেই'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Each role dashboard uses the shared layout on a phone', (
     WidgetTester tester,
   ) async {
@@ -350,7 +444,10 @@ void main() {
             create: (_) => _StudentDashboardTestProvider(),
           ),
         ],
-        child: const MaterialApp(home: StudentDashboard()),
+        child: MaterialApp(
+          home: const StudentDashboard(),
+          routes: {'/student/discussions': (_) => const DiscussionScreen()},
+        ),
       ),
     );
     await tester.pump();
@@ -371,6 +468,17 @@ void main() {
           )
           .icon,
       Icons.inventory_2_rounded,
+    );
+    final generalDiscussionAction = find.ancestor(
+      of: find.text('আলোচনা করুন'),
+      matching: find.byType(DashboardQuickAction),
+    );
+    await tester.ensureVisible(generalDiscussionAction);
+    await tester.tap(generalDiscussionAction);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<DiscussionScreen>(find.byType(DiscussionScreen)).courseId,
+      isNull,
     );
 
     await tester.pumpWidget(
@@ -618,6 +726,209 @@ void main() {
     expect(find.text('Another answer'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('Teacher can search student discussions and reply', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final provider = _TeacherDiscussionTestProvider();
+    await tester.pumpWidget(
+      ChangeNotifierProvider<StudentProvider>.value(
+        value: provider,
+        child: const MaterialApp(home: DiscussionScreen(isInstructor: true)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(FloatingActionButton), findsNothing);
+    expect(find.text('Demo Student (শিক্ষার্থী)'), findsOneWidget);
+    expect(find.byType(RoleBottomNavigation), findsNothing);
+
+    await tester.enterText(find.byType(TextField).first, 'missing');
+    await tester.pump();
+    expect(find.text('কোনো আলোচনা পাওয়া যায়নি'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).first, 'Course');
+    await tester.pump();
+    await tester.tap(find.text('Course question'));
+    await tester.pumpAndSettle();
+    expect(find.text('Teacher A (শিক্ষক)'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).last, 'Teacher answer');
+    await tester.tap(find.text('উত্তর পাঠান'));
+    await tester.pumpAndSettle();
+    expect(provider.lastReply, 'Teacher answer');
+    expect(find.text('Teacher answer'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Teacher discussion icon opens the shared discussion room', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => AuthProvider(ApiService())),
+          ChangeNotifierProvider<InstructorProvider>(
+            create: (_) => _InstructorDashboardTestProvider(),
+          ),
+          ChangeNotifierProvider<StudentProvider>(
+            create: (_) => _TeacherDiscussionTestProvider(),
+          ),
+        ],
+        child: MaterialApp(
+          home: const InstructorDashboard(),
+          routes: {
+            '/instructor/discussions': (_) =>
+                const DiscussionScreen(isInstructor: true),
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    final discussionAction = find.ancestor(
+      of: find.text('শিক্ষার্থীদের আলোচনা'),
+      matching: find.byType(DashboardQuickAction),
+    );
+    await tester.ensureVisible(discussionAction);
+    await tester.tap(discussionAction);
+    await tester.pumpAndSettle();
+    expect(find.byType(DiscussionScreen), findsOneWidget);
+    expect(find.text('Course question'), findsOneWidget);
+  });
+
+  testWidgets('Student can start a discussion inside a course', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final provider = _StudentCourseDiscussionTestProvider();
+    await tester.pumpWidget(
+      ChangeNotifierProvider<StudentProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: StudentCourseDetailsScreen(
+            course: Course(id: 1, title: 'Physics'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final studentTabs = tester.widgetList<Tab>(
+      find.descendant(of: find.byType(TabBar), matching: find.byType(Tab)),
+    );
+    expect(studentTabs.last.text, 'পরীক্ষা');
+    final discussionTab = find.descendant(
+      of: find.byType(TabBar),
+      matching: find.text('আলোচনা'),
+    );
+    await tester.ensureVisible(discussionTab);
+    await tester.pumpAndSettle();
+    await tester.tap(discussionTab);
+    await tester.pumpAndSettle();
+    expect(find.text('Course question'), findsOneWidget);
+    await tester.tap(find.text('এই কোর্সে আলোচনা শুরু করুন'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).first, 'New topic');
+    await tester.enterText(find.byType(TextFormField).last, 'Course question');
+    await tester.tap(find.text('পোস্ট করুন'));
+    await tester.pumpAndSettle();
+    expect(provider.postedCourseId, 1);
+    expect(provider.postedTitle, 'New topic');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Course rating disappears after a student submits it', (
+    WidgetTester tester,
+  ) async {
+    final provider = _CourseRatingTestProvider();
+
+    Widget courseScreen() => ChangeNotifierProvider<StudentProvider>.value(
+      value: provider,
+      child: MaterialApp(
+        home: StudentCourseDetailsScreen(
+          course: Course(id: 1, title: 'Physics'),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(courseScreen());
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('5 তারকা রেটিং দিন'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('5 তারকা রেটিং দিন'));
+    await tester.pumpAndSettle();
+    expect(provider.savedRating, 5);
+    expect(provider.rateCalls, 1);
+    expect(find.byTooltip('5 তারকা রেটিং দিন'), findsNothing);
+    expect(find.text('এখনও কোনো রেটিং নেই'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(courseScreen());
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('5 তারকা রেটিং দিন'), findsNothing);
+    expect(provider.rateCalls, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Teacher starts and replies to discussions in a course', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final discussionProvider = _CourseDiscussionTestProvider();
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<InstructorProvider>(
+            create: (_) => _CourseExamTestProvider(),
+          ),
+          ChangeNotifierProvider<StudentProvider>.value(
+            value: discussionProvider,
+          ),
+        ],
+        child: MaterialApp(
+          home: InstructorCourseContentScreen(
+            course: Course(id: 1, title: 'Physics'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final discussionTab = find.descendant(
+      of: find.byType(TabBar),
+      matching: find.text('আলোচনা'),
+    );
+    await tester.ensureVisible(discussionTab);
+    await tester.pumpAndSettle();
+    await tester.tap(discussionTab);
+    await tester.pumpAndSettle();
+    expect(find.text('Course question'), findsOneWidget);
+    await tester.tap(find.text('এই কোর্সে আলোচনা শুরু করুন'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).first, 'Teacher topic');
+    await tester.enterText(find.byType(TextFormField).last, 'Course reminder');
+    await tester.tap(find.text('পোস্ট করুন'));
+    await tester.pumpAndSettle();
+    expect(discussionProvider.postedCourseId, 1);
+    expect(discussionProvider.postedTitle, 'Teacher topic');
+    expect(find.byTooltip('কনটেন্ট যোগ করুন'), findsNothing);
+    await tester.tap(find.text('Course question'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'Course answer');
+    await tester.tap(find.text('উত্তর পাঠান'));
+    await tester.pumpAndSettle();
+    expect(discussionProvider.lastReply, 'Course answer');
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _DiscussionTestProvider extends StudentProvider {
@@ -630,7 +941,13 @@ class _DiscussionTestProvider extends StudentProvider {
 
   @override
   List<Discussion> get discussions => [
-    Discussion(id: 1, title: 'Study question', content: 'How do I prepare?'),
+    Discussion(
+      id: 1,
+      title: 'Study question',
+      content: 'How do I prepare?',
+      authorName: 'Demo Student',
+      authorRole: 'student',
+    ),
   ];
 
   @override
@@ -642,9 +959,17 @@ class _DiscussionTestProvider extends StudentProvider {
     title: 'Study question',
     content: 'How do I prepare?',
     replies: [
-      DiscussionReply(content: 'First answer', authorName: 'Tutor'),
+      DiscussionReply(
+        content: 'First answer',
+        authorName: 'Teacher A',
+        authorRole: 'instructor',
+      ),
       if (lastReply != null)
-        DiscussionReply(content: lastReply!, authorName: 'Student'),
+        DiscussionReply(
+          content: lastReply!,
+          authorName: 'Teacher A',
+          authorRole: 'instructor',
+        ),
     ],
   );
 
@@ -652,6 +977,84 @@ class _DiscussionTestProvider extends StudentProvider {
   Future<bool> replyToDiscussion(int id, String content) async {
     lastReply = content;
     return true;
+  }
+}
+
+class _CourseDiscussionTestProvider extends _DiscussionTestProvider {
+  int? postedCourseId;
+  String? postedTitle;
+
+  @override
+  Future<List<Discussion>> getCourseDiscussions(int courseId) async => [
+    Discussion(
+      id: 2,
+      courseId: courseId,
+      courseTitle: 'Physics',
+      title: 'Course question',
+      content: 'How does this lesson work?',
+      authorName: 'Demo Student',
+      authorRole: 'student',
+    ),
+  ];
+
+  @override
+  Future<bool> createCourseDiscussion(
+    int courseId,
+    String title,
+    String content,
+  ) async {
+    postedCourseId = courseId;
+    postedTitle = title;
+    return true;
+  }
+}
+
+class _TeacherDiscussionTestProvider extends _CourseDiscussionTestProvider {
+  @override
+  List<Discussion> get discussions => [
+    Discussion(
+      id: 2,
+      courseId: 1,
+      courseTitle: 'Physics',
+      title: 'Course question',
+      content: 'How does this lesson work?',
+      authorName: 'Demo Student',
+      authorRole: 'student',
+    ),
+  ];
+}
+
+class _StudentCourseDiscussionTestProvider
+    extends _CourseDiscussionTestProvider {
+  @override
+  bool get testsLoaded => true;
+
+  @override
+  Future<void> loadTests() async {}
+
+  @override
+  Future<Map<String, dynamic>?> getCourseDetails(int courseId) async => {
+    'content': <CourseContent>[],
+    'rating_count': 0,
+  };
+}
+
+class _CourseRatingTestProvider extends _StudentCourseDiscussionTestProvider {
+  int? savedRating;
+  int rateCalls = 0;
+
+  @override
+  Future<Map<String, dynamic>?> getCourseDetails(int courseId) async => {
+    'content': <CourseContent>[],
+    'rating_count': savedRating == null ? 0 : 1,
+    'my_rating': savedRating,
+  };
+
+  @override
+  Future<ApiResponse> rateCourse(int courseId, int rating) async {
+    rateCalls++;
+    savedRating = rating;
+    return ApiResponse(success: true, statusCode: 200);
   }
 }
 
@@ -679,8 +1082,31 @@ class _PackagesTestProvider extends StudentProvider {
 class _ExamTestProvider extends InstructorProvider {
   _ExamTestProvider() : super(InstructorService(ApiService()));
 
+  int? createdCourseId;
+  Map<String, dynamic>? createdExam;
+
   @override
   Future<List<Map<String, dynamic>>> getCourseExams(int courseId) async => [];
+
+  @override
+  Future<ApiResponse> createExam(
+    int courseId,
+    Map<String, dynamic> data,
+  ) async {
+    createdCourseId = courseId;
+    createdExam = data;
+    return ApiResponse(success: true, statusCode: 201);
+  }
+}
+
+class _CourseExamTestProvider extends _ExamTestProvider {
+  @override
+  Future<List<CourseContent>> getCourseContent(int courseId) async => [];
+
+  @override
+  Future<List<Map<String, dynamic>>> getCourseExams(int courseId) async => [
+    {'id': 8, 'title': 'Weekly Quiz', 'published': 1},
+  ];
 }
 
 class _AdminTestProvider extends AdminProvider {
@@ -700,19 +1126,24 @@ class _AdminRoleTestProvider extends AdminProvider {
   _AdminRoleTestProvider() : super(AdminService(ApiService()));
 
   String? selectedRole;
+  bool isFrozen = false;
+  bool removed = false;
 
   @override
   bool get usersLoaded => true;
 
   @override
-  List<User> get users => [
-    User(
-      id: 7,
-      name: 'Demo Student',
-      email: 'student@example.com',
-      role: 'student',
-    ),
-  ];
+  List<User> get users => removed
+      ? []
+      : [
+          User(
+            id: 7,
+            name: 'Demo Student',
+            email: 'student@example.com',
+            role: 'student',
+            isFrozen: isFrozen,
+          ),
+        ];
 
   @override
   Future<void> loadDashboard() async {}
@@ -721,6 +1152,20 @@ class _AdminRoleTestProvider extends AdminProvider {
   Future<bool> updateUserRole(int id, String role) async {
     selectedRole = role;
     return true;
+  }
+
+  @override
+  Future<ApiResponse> setUserFrozen(int id, bool frozen) async {
+    isFrozen = frozen;
+    notifyListeners();
+    return ApiResponse(success: true, statusCode: 200);
+  }
+
+  @override
+  Future<ApiResponse> deleteUser(int id) async {
+    removed = true;
+    notifyListeners();
+    return ApiResponse(success: true, statusCode: 200);
   }
 }
 

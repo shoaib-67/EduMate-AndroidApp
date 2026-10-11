@@ -16,7 +16,7 @@ app.use(express.json());
 let pool;
 
 const userFields = `
-  id, name, email, role, phone, institution, avatar,
+  id, name, email, role, phone, institution, avatar, is_frozen,
   DATE_FORMAT(created_at, '%Y-%m-%dT%H:%i:%sZ') AS created_at
 `;
 
@@ -29,6 +29,7 @@ function publicUser(user) {
     phone: user.phone,
     institution: user.institution,
     avatar: user.avatar,
+    is_frozen: Boolean(user.is_frozen),
     created_at: user.created_at,
   };
 }
@@ -49,10 +50,11 @@ async function requireAuth(req, res, next) {
     // A valid JWT is not enough: an administrator may have permanently
     // deleted this account after the token was issued.
     const [rows] = await pool.query(
-      'SELECT id, role FROM users WHERE id = ? LIMIT 1',
+      'SELECT id, role, is_frozen FROM users WHERE id = ? LIMIT 1',
       [req.auth.id],
     );
     if (!rows[0]) return res.status(401).json({ message: 'Account not found' });
+    if (rows[0].is_frozen) return res.status(403).json({ message: 'Account is frozen' });
     req.auth.role = rows[0].role;
     next();
   } catch (_) {
@@ -115,9 +117,14 @@ async function initializeDatabase() {
       phone VARCHAR(40),
       institution VARCHAR(180),
       avatar TEXT,
+      is_frozen TINYINT(1) NOT NULL DEFAULT 0,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  const [frozenColumn] = await pool.query("SHOW COLUMNS FROM users LIKE 'is_frozen'");
+  if (!frozenColumn.length) {
+    await pool.query('ALTER TABLE users ADD COLUMN is_frozen TINYINT(1) NOT NULL DEFAULT 0');
+  }
   try {
     await pool.query(
       'ALTER TABLE users ADD UNIQUE KEY uq_users_phone (phone)',
@@ -285,12 +292,19 @@ async function initializeDatabase() {
     CREATE TABLE IF NOT EXISTS discussions (
       id INT PRIMARY KEY AUTO_INCREMENT,
       user_id INT NOT NULL,
+      course_id INT NULL,
       title VARCHAR(180) NOT NULL,
       content TEXT NOT NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
     )
   `);
+  const [discussionCourseColumn] = await pool.query("SHOW COLUMNS FROM discussions LIKE 'course_id'");
+  if (!discussionCourseColumn.length) {
+    await pool.query(`ALTER TABLE discussions ADD COLUMN course_id INT NULL,
+      ADD CONSTRAINT fk_discussions_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE`);
+  }
   await pool.query(`
     CREATE TABLE IF NOT EXISTS discussion_replies (
       id INT PRIMARY KEY AUTO_INCREMENT,
@@ -393,6 +407,9 @@ app.post('/api/auth/login', async (req, res) => {
   const user = rows[0];
   if (!user || !(await bcrypt.compare(password, user.password_hash))) {
     return res.status(401).json({ message: 'Invalid email or password' });
+  }
+  if (user.is_frozen) {
+    return res.status(403).json({ message: 'Account is frozen. Contact an administrator.' });
   }
   res.json({ token: issueToken(user), user: publicUser(user), message: 'Login successful' });
 });
@@ -671,29 +688,73 @@ app.get('/api/student/performance', requireAuth, async (req, res) => {
   });
 });
 
-app.get('/api/discussions', requireAuth, async (_req, res) => {
+async function canAccessDiscussionCourse(auth, courseId) {
+  if (auth.role === 'student') {
+    const [[enrollment]] = await pool.query(
+      'SELECT 1 FROM course_enrollments WHERE course_id = ? AND student_id = ?',
+      [courseId, auth.id],
+    );
+    return !!enrollment;
+  }
+  if (auth.role === 'instructor') {
+    const [[course]] = await pool.query(
+      'SELECT 1 FROM courses WHERE id = ? AND instructor_id = ?',
+      [courseId, auth.id],
+    );
+    return !!course;
+  }
+  return false;
+}
+
+app.get('/api/discussions', requireAuth, async (req, res) => {
+  if (!['student', 'instructor'].includes(req.auth.role)) {
+    return res.status(403).json({ message: 'Discussion access requires a student or instructor' });
+  }
+  const hasCourseFilter = req.query.course_id != null;
+  const courseId = hasCourseFilter ? Number(req.query.course_id) : null;
+  if (hasCourseFilter && (!Number.isInteger(courseId) || courseId <= 0)) {
+    return res.status(400).json({ message: 'A valid course is required' });
+  }
+  if (hasCourseFilter && !await canAccessDiscussionCourse(req.auth, courseId)) {
+    return res.status(403).json({ message: 'You do not have access to this course' });
+  }
+  const where = hasCourseFilter
+    ? 'd.course_id = ?'
+    : req.auth.role === 'student'
+      ? 'd.course_id IS NULL'
+      : 'c.instructor_id = ?';
+  const params = hasCourseFilter ? [courseId] : req.auth.role === 'student' ? [] : [req.auth.id];
   const [discussions] = await pool.query(`
-    SELECT d.id, d.title, d.content, d.user_id AS author_id,
-      u.name AS author_name, u.role AS author_role, COUNT(dr.id) AS reply_count,
-      d.created_at
+    SELECT d.id, d.course_id, c.title AS course_title, d.title, d.content,
+      d.user_id AS author_id, u.name AS author_name, u.role AS author_role,
+      COUNT(dr.id) AS reply_count, d.created_at
     FROM discussions d JOIN users u ON u.id = d.user_id
+      LEFT JOIN courses c ON c.id = d.course_id
       LEFT JOIN discussion_replies dr ON dr.discussion_id = d.id
-    GROUP BY d.id ORDER BY d.created_at DESC
-  `);
+    WHERE ${where}
+    GROUP BY d.id ORDER BY d.created_at DESC, d.id DESC
+  `, params);
   res.json({ discussions });
 });
 
 app.get('/api/discussions/:id', requireAuth, async (req, res) => {
   const [[discussion]] = await pool.query(`
-    SELECT d.id, d.title, d.content, d.user_id AS author_id,
-      u.name AS author_name, u.role AS author_role, d.created_at
+    SELECT d.id, d.course_id, c.title AS course_title, d.title, d.content,
+      d.user_id AS author_id, u.name AS author_name, u.role AS author_role,
+      d.created_at
     FROM discussions d JOIN users u ON u.id = d.user_id
+      LEFT JOIN courses c ON c.id = d.course_id
     WHERE d.id = ?
   `, [req.params.id]);
   if (!discussion) return res.status(404).json({ message: 'Discussion not found' });
+  if (discussion.course_id == null) {
+    if (req.auth.role !== 'student') return res.status(403).json({ message: 'This discussion is for students' });
+  } else if (!await canAccessDiscussionCourse(req.auth, discussion.course_id)) {
+    return res.status(403).json({ message: 'You do not have access to this course' });
+  }
   const [replies] = await pool.query(`
     SELECT dr.id, dr.content, dr.user_id AS author_id,
-      u.name AS author_name, dr.created_at
+      u.name AS author_name, u.role AS author_role, dr.created_at
     FROM discussion_replies dr JOIN users u ON u.id = dr.user_id
     WHERE dr.discussion_id = ? ORDER BY dr.created_at ASC
   `, [req.params.id]);
@@ -701,21 +762,51 @@ app.get('/api/discussions/:id', requireAuth, async (req, res) => {
 });
 
 app.post('/api/discussions', requireAuth, async (req, res) => {
-  const { title, content } = req.body || {};
-  if (!title || !content) return res.status(400).json({ message: 'Title and content are required' });
+  if (!['student', 'instructor'].includes(req.auth.role)) {
+    return res.status(403).json({ message: 'Only students and instructors can start discussions' });
+  }
+  const title = String(req.body?.title ?? '').trim();
+  const content = String(req.body?.content ?? '').trim();
+  const hasCourse = req.body?.course_id != null;
+  const courseId = hasCourse ? Number(req.body.course_id) : null;
+  if (req.auth.role === 'instructor' && !hasCourse) {
+    return res.status(403).json({ message: 'Instructors can only start course discussions' });
+  }
+  if (!title || !content || title.length > 180) {
+    return res.status(400).json({ message: 'A title (up to 180 characters) and content are required' });
+  }
+  if (hasCourse && (!Number.isInteger(courseId) || courseId <= 0)) {
+    return res.status(400).json({ message: 'A valid course is required' });
+  }
+  if (hasCourse && !await canAccessDiscussionCourse(req.auth, courseId)) {
+    return res.status(403).json({ message: 'You do not have access to this course' });
+  }
   await pool.query(
-    'INSERT INTO discussions (user_id, title, content) VALUES (?, ?, ?)',
-    [req.auth.id, title, content],
+    'INSERT INTO discussions (user_id, course_id, title, content) VALUES (?, ?, ?, ?)',
+    [req.auth.id, courseId, title, content],
   );
   res.status(201).json({ message: 'Discussion created' });
 });
 
 app.post('/api/discussions/:id/reply', requireAuth, async (req, res) => {
-  const { content } = req.body || {};
-  if (!content) return res.status(400).json({ message: 'Reply content is required' });
+  if (!['student', 'instructor'].includes(req.auth.role)) {
+    return res.status(403).json({ message: 'Only students and instructors can reply' });
+  }
+  const discussionId = Number(req.params.id);
+  const content = String(req.body?.content ?? '').trim();
+  if (!Number.isInteger(discussionId) || discussionId <= 0 || !content) {
+    return res.status(400).json({ message: 'A discussion and reply content are required' });
+  }
+  const [[discussion]] = await pool.query('SELECT id, course_id FROM discussions WHERE id = ?', [discussionId]);
+  if (!discussion) return res.status(404).json({ message: 'Discussion not found' });
+  if (discussion.course_id == null) {
+    if (req.auth.role !== 'student') return res.status(403).json({ message: 'This discussion is for students' });
+  } else if (!await canAccessDiscussionCourse(req.auth, discussion.course_id)) {
+    return res.status(403).json({ message: 'You do not have access to this course' });
+  }
   await pool.query(
     'INSERT INTO discussion_replies (discussion_id, user_id, content) VALUES (?, ?, ?)',
-    [req.params.id, req.auth.id, content],
+    [discussionId, req.auth.id, content],
   );
   res.status(201).json({ message: 'Reply created' });
 });
@@ -803,10 +894,17 @@ app.post('/api/student/courses/:id/rating', requireAuth, async (req, res) => {
     [req.params.id, req.auth.id],
   );
   if (!enrollment) return res.status(404).json({ message: 'Course not found' });
-  await pool.query(`
-    INSERT INTO course_ratings (course_id, student_id, rating) VALUES (?, ?, ?)
-    ON DUPLICATE KEY UPDATE rating = VALUES(rating)
-  `, [req.params.id, req.auth.id, rating]);
+  try {
+    await pool.query(
+      'INSERT INTO course_ratings (course_id, student_id, rating) VALUES (?, ?, ?)',
+      [req.params.id, req.auth.id, rating],
+    );
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ message: 'You have already rated this course' });
+    }
+    throw error;
+  }
   res.json({ message: 'Rating saved', rating });
 });
 
@@ -1331,7 +1429,26 @@ app.put('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
   res.json({ message: 'User updated' });
 });
 
+app.patch('/api/admin/users/:id/freeze', requireAuth, requireAdmin, async (req, res) => {
+  const isFrozen = req.body?.is_frozen;
+  if (typeof isFrozen !== 'boolean') {
+    return res.status(400).json({ message: 'is_frozen must be true or false' });
+  }
+  if (Number(req.params.id) === req.auth.id && isFrozen) {
+    return res.status(400).json({ message: 'You cannot freeze your own account' });
+  }
+  const [result] = await pool.query(
+    'UPDATE users SET is_frozen = ? WHERE id = ?',
+    [isFrozen, req.params.id],
+  );
+  if (!result.affectedRows) return res.status(404).json({ message: 'User not found' });
+  res.json({ message: isFrozen ? 'User frozen' : 'User unfrozen', is_frozen: isFrozen });
+});
+
 app.delete('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
+  if (Number(req.params.id) === req.auth.id) {
+    return res.status(400).json({ message: 'You cannot remove your own account' });
+  }
   const [result] = await pool.query('DELETE FROM users WHERE id = ?', [req.params.id]);
   if (result.affectedRows === 0) {
     return res.status(404).json({ message: 'User not found' });

@@ -34,6 +34,13 @@ class AdminService {
     return await _api.delete('${ApiConfig.adminUsers}/$id');
   }
 
+  Future<ApiResponse> setUserFrozen(int id, bool isFrozen) {
+    return _api.patch(
+      '${ApiConfig.adminUsers}/$id/freeze',
+      body: {'is_frozen': isFrozen},
+    );
+  }
+
   Future<ApiResponse> createUser(Map<String, dynamic> data) async {
     return await _api.post(ApiConfig.adminUsers, body: data);
   }

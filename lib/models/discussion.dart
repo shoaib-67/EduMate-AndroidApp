@@ -1,5 +1,7 @@
 class Discussion {
   final int? id;
+  final int? courseId;
+  final String? courseTitle;
   final String title;
   final String content;
   final String? authorName;
@@ -11,6 +13,8 @@ class Discussion {
 
   Discussion({
     this.id,
+    this.courseId,
+    this.courseTitle,
     required this.title,
     required this.content,
     this.authorName,
@@ -24,6 +28,8 @@ class Discussion {
   factory Discussion.fromJson(Map<String, dynamic> json) {
     return Discussion(
       id: json['id'] as int?,
+      courseId: (json['course_id'] as num?)?.toInt(),
+      courseTitle: json['course_title'] as String?,
       title: json['title'] as String? ?? '',
       content: json['content'] as String? ?? '',
       authorName: json['author_name'] as String?,
@@ -40,10 +46,7 @@ class Discussion {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'title': title,
-      'content': content,
-    };
+    return {'title': title, 'content': content};
   }
 }
 
@@ -51,6 +54,7 @@ class DiscussionReply {
   final int? id;
   final String content;
   final String? authorName;
+  final String? authorRole;
   final int? authorId;
   final DateTime? createdAt;
 
@@ -58,6 +62,7 @@ class DiscussionReply {
     this.id,
     required this.content,
     this.authorName,
+    this.authorRole,
     this.authorId,
     this.createdAt,
   });
@@ -67,6 +72,7 @@ class DiscussionReply {
       id: json['id'] as int?,
       content: json['content'] as String? ?? '',
       authorName: json['author_name'] as String?,
+      authorRole: json['author_role'] as String?,
       authorId: json['author_id'] as int?,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString())
@@ -75,8 +81,6 @@ class DiscussionReply {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'content': content,
-    };
+    return {'content': content};
   }
 }

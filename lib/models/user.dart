@@ -6,6 +6,7 @@ class User {
   final String? phone;
   final String? avatar;
   final String? institution;
+  final bool isFrozen;
   final DateTime? createdAt;
 
   User({
@@ -16,6 +17,7 @@ class User {
     this.phone,
     this.avatar,
     this.institution,
+    this.isFrozen = false,
     this.createdAt,
   });
 
@@ -28,6 +30,7 @@ class User {
       phone: json['phone'] as String?,
       avatar: json['avatar'] as String?,
       institution: json['institution'] as String?,
+      isFrozen: json['is_frozen'] == true || json['is_frozen'] == 1,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString())
           : null,
@@ -43,6 +46,7 @@ class User {
       'phone': phone,
       'avatar': avatar,
       'institution': institution,
+      'is_frozen': isFrozen,
     };
   }
 }

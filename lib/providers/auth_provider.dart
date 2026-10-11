@@ -61,7 +61,7 @@ class AuthProvider extends ChangeNotifier {
       if (session.success && session.user != null) {
         _user = session.user;
         await _saveSession(token, session.user!);
-      } else if (session.statusCode == 401) {
+      } else if (session.statusCode == 401 || session.statusCode == 403) {
         _user = null;
         _apiService.clearToken();
         await _storage.deleteAll();

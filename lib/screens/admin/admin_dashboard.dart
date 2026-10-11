@@ -261,6 +261,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   itemCount: admin.users.length,
                   itemBuilder: (context, index) {
                     final user = admin.users[index];
+                    final isCurrentUser =
+                        user.id == context.read<AuthProvider>().user?.id;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: EduCard(
@@ -305,6 +307,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                         .textTheme
                                         .bodySmall,
                                   ),
+                                  if (user.isFrozen)
+                                    const Text(
+                                      'ফ্রিজ করা',
+                                      style: TextStyle(
+                                        color: AppTheme.accentOrange,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
@@ -338,17 +348,30 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                   value: 'role',
                                   child: Text('রোল পরিবর্তন করুন'),
                                 ),
-                                const PopupMenuItem(
-                                  value: 'delete',
-                                  child: Text('মুছুন'),
-                                ),
+                                if (!isCurrentUser)
+                                  PopupMenuItem(
+                                    value: 'freeze',
+                                    child: Text(
+                                      user.isFrozen
+                                          ? 'আনফ্রিজ করুন'
+                                          : 'ফ্রিজ করুন',
+                                    ),
+                                  ),
+                                if (!isCurrentUser)
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text('মুছুন'),
+                                  ),
                               ],
                               onSelected: (val) {
                                 if (val == 'role' && user.id != null) {
                                   _showChangeRoleDialog(admin, user);
                                 }
+                                if (val == 'freeze' && user.id != null) {
+                                  _setUserFrozen(admin, user);
+                                }
                                 if (val == 'delete' && user.id != null) {
-                                  admin.deleteUser(user.id!);
+                                  _confirmDeleteUser(admin, user);
                                 }
                               },
                             ),
@@ -360,6 +383,55 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
         ),
       ],
+    );
+  }
+
+  Future<void> _setUserFrozen(AdminProvider admin, User user) async {
+    final response = await admin.setUserFrozen(user.id!, !user.isFrozen);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          response.success
+              ? user.isFrozen
+                    ? 'ব্যবহারকারীকে আনফ্রিজ করা হয়েছে'
+                    : 'ব্যবহারকারীকে ফ্রিজ করা হয়েছে'
+              : response.message ?? 'অ্যাকাউন্ট আপডেট করা যায়নি',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteUser(AdminProvider admin, User user) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('ব্যবহারকারী মুছবেন?'),
+        content: Text('${user.name} এর অ্যাকাউন্ট মুছে ফেলা হবে।'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('বাতিল'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('মুছুন'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final response = await admin.deleteUser(user.id!);
+    if (response.success) await admin.loadDashboard();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          response.success
+              ? 'ব্যবহারকারী মুছে ফেলা হয়েছে'
+              : response.message ?? 'ব্যবহারকারী মুছতে ব্যর্থ হয়েছে',
+        ),
+      ),
     );
   }
 
@@ -686,6 +758,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
             const Divider(height: 1),
             const SizedBox(height: 16),
             _userDetailRow(Icons.email_outlined, 'ইমেইল', user.email),
+            _userDetailRow(
+              user.isFrozen ? Icons.lock_outline : Icons.lock_open_rounded,
+              'অ্যাকাউন্ট',
+              user.isFrozen ? 'ফ্রিজ করা' : 'সক্রিয়',
+            ),
             _userDetailRow(
               Icons.phone_outlined,
               'ফোন',

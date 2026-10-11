@@ -211,6 +211,15 @@ class _InstructorDashboardState extends State<InstructorDashboard> {
             ),
             const SizedBox(height: 10),
             DashboardQuickAction(
+              icon: Icons.forum_rounded,
+              title: 'শিক্ষার্থীদের আলোচনা',
+              subtitle: 'প্রশ্ন পড়ুন ও উত্তর দিন',
+              color: AppTheme.accentTeal,
+              onTap: () =>
+                  Navigator.of(context).pushNamed('/instructor/discussions'),
+            ),
+            const SizedBox(height: 10),
+            DashboardQuickAction(
               icon: Icons.bug_report_outlined,
               title: 'বাগ রিপোর্ট',
               subtitle: 'অ্যাপের কোনো সমস্যা জানিয়ে দিন',
