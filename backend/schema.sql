@@ -76,6 +76,8 @@ CREATE TABLE IF NOT EXISTS questions (
   question_text TEXT NOT NULL,
   options JSON NOT NULL,
   correct_option INT NOT NULL DEFAULT 0,
+  question_type VARCHAR(20) NOT NULL DEFAULT 'mcq',
+  correct_answer VARCHAR(500),
   explanation TEXT,
   subject VARCHAR(120),
   FOREIGN KEY (test_id) REFERENCES tests(id) ON DELETE CASCADE
@@ -89,7 +91,11 @@ CREATE TABLE IF NOT EXISTS test_results (
   total_marks DECIMAL(8,2) NOT NULL DEFAULT 0,
   correct_answers INT NOT NULL DEFAULT 0,
   total_questions INT NOT NULL DEFAULT 0,
+  submission_id VARCHAR(80),
+  submission_reason VARCHAR(30) NOT NULL DEFAULT 'manual',
+  result_payload JSON,
   completed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_submission (user_id, submission_id),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (test_id) REFERENCES tests(id) ON DELETE CASCADE
 );

@@ -192,8 +192,8 @@ class _SignupScreenState extends State<SignupScreen>
                                 if (v == null || v.isEmpty) {
                                   return 'পাসওয়ার্ড দিন';
                                 }
-                                if (v.length < 6) {
-                                  return 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষর';
+                                if (v.length < 8) {
+                                  return 'পাসওয়ার্ড কমপক্ষে ৮ অক্ষর';
                                 }
                                 return null;
                               },

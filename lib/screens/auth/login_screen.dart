@@ -198,18 +198,27 @@ class _LoginScreenState extends State<LoginScreen>
             ),
             const Divider(height: 24),
             Center(
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                children: [
-                  Text(
-                    'নতুন এখানে? ',
-                    style: GoogleFonts.manrope(color: muted, fontSize: 12),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pushNamed('/signup'),
-                    child: const Text('নতুন একাউন্ট খুলুন'),
-                  ),
-                ],
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'নতুন এখানে? ',
+                      style: GoogleFonts.manrope(color: muted, fontSize: 12),
+                    ),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        minimumSize: const Size(0, 40),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: () =>
+                          Navigator.of(context).pushNamed('/signup'),
+                      child: const Text('নতুন একাউন্ট খুলুন'),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

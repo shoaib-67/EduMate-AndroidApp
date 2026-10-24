@@ -4,6 +4,8 @@ import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import mysql from 'mysql2/promise';
+import { randomUUID } from 'node:crypto';
+import { cleanQuestion, gradeExam } from './exam-grading.js';
 
 const app = express();
 const port = Number(process.env.PORT || 5000);
@@ -122,6 +124,13 @@ async function initializeDatabase() {
     )
   `);
   const [frozenColumn] = await pool.query("SHOW COLUMNS FROM users LIKE 'is_frozen'");
+  const [verifiedColumn] = await pool.query("SHOW COLUMNS FROM users LIKE 'email_verified'");
+  if (verifiedColumn.length) {
+    // Accounts created before email verification was removed remain usable.
+    await pool.query('UPDATE users SET email_verified = TRUE');
+    await pool.query('ALTER TABLE users DROP COLUMN email_verified');
+  }
+  await pool.query('DROP TABLE IF EXISTS email_verifications');
   if (!frozenColumn.length) {
     await pool.query('ALTER TABLE users ADD COLUMN is_frozen TINYINT(1) NOT NULL DEFAULT 0');
   }
@@ -155,7 +164,7 @@ async function initializeDatabase() {
       student_id INT NOT NULL,
       enrolled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (course_id, student_id),
-      CONSTRAINT fk_tests_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+      CONSTRAINT fk_enrollments_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
       FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
@@ -285,6 +294,23 @@ async function initializeDatabase() {
     )
   `);
   const [marksColumn] = await pool.query("SHOW COLUMNS FROM test_results LIKE 'total_marks'");
+  for (const [column, definition] of [
+    ['question_type', "VARCHAR(20) NOT NULL DEFAULT 'mcq'"],
+    ['correct_answer', 'VARCHAR(500) NULL'],
+  ]) {
+    const [existing] = await pool.query('SHOW COLUMNS FROM questions LIKE ?', [column]);
+    if (!existing.length) await pool.query(`ALTER TABLE questions ADD COLUMN ${column} ${definition}`);
+  }
+  for (const [column, definition] of [
+    ['submission_id', 'VARCHAR(80) NULL'],
+    ['submission_reason', "VARCHAR(30) NOT NULL DEFAULT 'manual'"],
+    ['result_payload', 'JSON NULL'],
+  ]) {
+    const [existing] = await pool.query('SHOW COLUMNS FROM test_results LIKE ?', [column]);
+    if (!existing.length) await pool.query(`ALTER TABLE test_results ADD COLUMN ${column} ${definition}`);
+  }
+  const [submissionIndex] = await pool.query("SHOW INDEX FROM test_results WHERE Key_name = 'uq_submission'");
+  if (!submissionIndex.length) await pool.query('ALTER TABLE test_results ADD UNIQUE KEY uq_submission (user_id, submission_id)');
   if (marksColumn[0] && !String(marksColumn[0].Type).startsWith('decimal')) {
     await pool.query('ALTER TABLE test_results MODIFY COLUMN total_marks DECIMAL(8,2) NOT NULL DEFAULT 0');
   }
@@ -403,7 +429,7 @@ app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ message: 'Email and password are required' });
 
-  const [rows] = await pool.query(`SELECT ${userFields}, password_hash FROM users WHERE email = ?`, [email]);
+  const [rows] = await pool.query(`SELECT ${userFields}, password_hash FROM users WHERE email = ?`, [String(email).trim().toLowerCase()]);
   const user = rows[0];
   if (!user || !(await bcrypt.compare(password, user.password_hash))) {
     return res.status(401).json({ message: 'Invalid email or password' });
@@ -415,8 +441,13 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 app.post('/api/auth/signup', async (req, res) => {
-  const { name, email, password, phone, institution } = req.body || {};
+  const { name, password, phone, institution } = req.body || {};
+  const email = String(req.body?.email ?? '').trim().toLowerCase();
   if (!name || !email || !password) return res.status(400).json({ message: 'Name, email and password are required' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 190 ||
+      typeof password !== 'string' || password.length < 8 || password.length > 200) {
+    return res.status(400).json({ message: 'Enter a valid email and a password of at least 8 characters.' });
+  }
   try {
     if (phone) {
       const [existingPhone] = await pool.query(
@@ -434,7 +465,11 @@ app.post('/api/auth/signup', async (req, res) => {
     );
     const [rows] = await pool.query(`SELECT ${userFields} FROM users WHERE id = ?`, [result.insertId]);
     const user = rows[0];
-    res.status(201).json({ token: issueToken(user), user: publicUser(user), message: 'Signup successful' });
+    res.status(201).json({
+      token: issueToken(user),
+      user: publicUser(user),
+      message: 'Account created successfully',
+    });
   } catch (error) {
     const duplicate = error.code === 'ER_DUP_ENTRY';
     res.status(duplicate ? 409 : 500).json({
@@ -557,7 +592,7 @@ app.get('/api/student/tests/:id', requireAuth, async (req, res) => {
   );
   if (Number(attempts.count) >= 3) return res.status(409).json({ message: 'All 3 attempts have been used' });
   const [questions] = await pool.query(
-    `SELECT id, question_text, options, subject
+    `SELECT id, question_text, question_type, options, subject
      FROM questions WHERE test_id = ? ORDER BY id`,
     [req.params.id],
   );
@@ -590,54 +625,60 @@ app.get('/api/student/tests/:id', requireAuth, async (req, res) => {
 });
 
 app.post('/api/student/tests/submit', requireAuth, async (req, res) => {
-  const { test_id: testId, answers = {} } = req.body || {};
-  const [[test]] = await pool.query(
+  const { test_id: testId, answers = {}, submission_id: suppliedId, submission_reason: reason = 'manual' } = req.body || {};
+  const submissionId = suppliedId ?? randomUUID();
+  if (typeof submissionId !== 'string' || !/^[a-zA-Z0-9_-]{16,80}$/.test(submissionId) ||
+      !['manual', 'time_expired', 'left_exam'].includes(reason)) return res.status(400).json({ message: 'Invalid submission details' });
+  if (answers == null || typeof answers !== 'object' || Array.isArray(answers)) {
+    return res.status(400).json({ message: 'Answers must be an object' });
+  }
+  const connection = await pool.getConnection();
+  try {
+  await connection.beginTransaction();
+  // Serialize attempts per student, including simultaneous retries.
+  await connection.query('SELECT id FROM users WHERE id = ? FOR UPDATE', [req.auth.id]);
+  const [[previous]] = await connection.query('SELECT test_id, result_payload FROM test_results WHERE user_id = ? AND submission_id = ?', [req.auth.id, submissionId]);
+  if (previous) {
+    await connection.rollback();
+    if (Number(previous.test_id) !== Number(testId)) return res.status(409).json({ message: 'Submission belongs to another exam' });
+    return res.json(typeof previous.result_payload === 'string' ? JSON.parse(previous.result_payload) : previous.result_payload);
+  }
+  const [[test]] = await connection.query(
     `SELECT t.id, t.per_mcq_mark, t.negative_marking FROM tests t
      JOIN course_enrollments e ON e.course_id = t.course_id AND e.student_id = ?
      WHERE t.id = ? AND t.published = TRUE`,
     [req.auth.id, testId],
   );
-  if (!test) return res.status(404).json({ message: 'Test not found' });
-  const [[attempts]] = await pool.query(
+  if (!test) { await connection.rollback(); return res.status(404).json({ message: 'Test not found' }); }
+  const [[attempts]] = await connection.query(
     'SELECT COUNT(*) AS count FROM test_results WHERE user_id = ? AND test_id = ?',
     [req.auth.id, testId],
   );
   if (Number(attempts.count) >= 3) {
+    await connection.rollback();
     return res.status(409).json({ message: 'All 3 attempts have been used' });
   }
-  if (answers == null || typeof answers !== 'object' || Array.isArray(answers)) {
-    return res.status(400).json({ message: 'Answers must be an object' });
-  }
-  const [questions] = await pool.query(
-    'SELECT id, correct_option FROM questions WHERE test_id = ?',
+  const [questions] = await connection.query(
+    'SELECT id, question_type, correct_option, correct_answer FROM questions WHERE test_id = ?',
     [testId],
   );
-  if (questions.length === 0) return res.status(404).json({ message: 'Test not found' });
-  const correctAnswers = questions.filter(
-    (question) => Object.hasOwn(answers, String(question.id)) &&
-      Number(answers[String(question.id)]) === question.correct_option,
-  ).length;
-  const incorrectAnswers = questions.filter((question) =>
-    Object.hasOwn(answers, String(question.id)) &&
-    Number(answers[String(question.id)]) !== question.correct_option).length;
-  const earnedMarks = Math.max(0, correctAnswers * Number(test.per_mcq_mark) -
-    incorrectAnswers * Number(test.negative_marking));
-  const totalMarks = questions.length * Number(test.per_mcq_mark);
-  const score = Math.round((earnedMarks / totalMarks) * 10000) / 100;
-  await pool.query(
+  if (questions.length === 0) { await connection.rollback(); return res.status(404).json({ message: 'Test not found' }); }
+  const result = { message: 'Test submitted successfully',
+    ...gradeExam(questions, answers, test.per_mcq_mark, test.negative_marking),
+    submission_reason: reason };
+  await connection.query(
     `INSERT INTO test_results
-      (user_id, test_id, score, total_marks, correct_answers, total_questions)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [req.auth.id, testId, score, totalMarks, correctAnswers, questions.length],
+      (user_id, test_id, score, total_marks, correct_answers, total_questions, submission_id, submission_reason, result_payload)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [req.auth.id, testId, result.score, result.total_marks, result.correct_answers, questions.length,
+      submissionId, reason, JSON.stringify(result)],
   );
-  res.status(201).json({
-    message: 'Test submitted successfully',
-    score,
-    earned_marks: earnedMarks,
-    total_marks: totalMarks,
-    correct_answers: correctAnswers,
-    total_questions: questions.length,
-  });
+  await connection.commit();
+  res.status(201).json(result);
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally { connection.release(); }
 });
 
 app.get('/api/student/performance', requireAuth, async (req, res) => {
@@ -722,7 +763,7 @@ app.get('/api/discussions', requireAuth, async (req, res) => {
     ? 'd.course_id = ?'
     : req.auth.role === 'student'
       ? 'd.course_id IS NULL'
-      : 'c.instructor_id = ?';
+      : '(d.course_id IS NULL OR c.instructor_id = ?)';
   const params = hasCourseFilter ? [courseId] : req.auth.role === 'student' ? [] : [req.auth.id];
   const [discussions] = await pool.query(`
     SELECT d.id, d.course_id, c.title AS course_title, d.title, d.content,
@@ -748,7 +789,9 @@ app.get('/api/discussions/:id', requireAuth, async (req, res) => {
   `, [req.params.id]);
   if (!discussion) return res.status(404).json({ message: 'Discussion not found' });
   if (discussion.course_id == null) {
-    if (req.auth.role !== 'student') return res.status(403).json({ message: 'This discussion is for students' });
+    if (!['student', 'instructor'].includes(req.auth.role)) {
+      return res.status(403).json({ message: 'This discussion is for students and instructors' });
+    }
   } else if (!await canAccessDiscussionCourse(req.auth, discussion.course_id)) {
     return res.status(403).json({ message: 'You do not have access to this course' });
   }
@@ -800,7 +843,9 @@ app.post('/api/discussions/:id/reply', requireAuth, async (req, res) => {
   const [[discussion]] = await pool.query('SELECT id, course_id FROM discussions WHERE id = ?', [discussionId]);
   if (!discussion) return res.status(404).json({ message: 'Discussion not found' });
   if (discussion.course_id == null) {
-    if (req.auth.role !== 'student') return res.status(403).json({ message: 'This discussion is for students' });
+    if (!['student', 'instructor'].includes(req.auth.role)) {
+      return res.status(403).json({ message: 'This discussion is for students and instructors' });
+    }
   } else if (!await canAccessDiscussionCourse(req.auth, discussion.course_id)) {
     return res.status(403).json({ message: 'You do not have access to this course' });
   }
@@ -1221,14 +1266,8 @@ function validateExam(body) {
   if (!Number.isFinite(negativeMarking) || negativeMarking < 0 || negativeMarking >= perMcqMark) return null;
   if (!['none', 'questions', 'questions_and_options'].includes(shuffleMode)) return null;
   if (!Array.isArray(questions) || questions.length < 1 || questions.length > 100) return null;
-  const cleanQuestions = questions.map((q) => ({
-    question_text: String(q?.question_text ?? '').trim(),
-    options: Array.isArray(q?.options) ? q.options.map((option) => String(option ?? '').trim()) : [],
-    correct_option: Number(q?.correct_option),
-  }));
-  if (cleanQuestions.some((q) => !q.question_text || q.options.length !== 4 ||
-      q.options.some((option) => !option) || !Number.isInteger(q.correct_option) ||
-      q.correct_option < 0 || q.correct_option > 3)) return null;
+  const cleanQuestions = questions.map(cleanQuestion);
+  if (cleanQuestions.some((q) => !q)) return null;
   return { title, subject, description, duration, perMcqMark, negativeMarking,
     shuffleMode, questions: cleanQuestions };
 }
@@ -1253,7 +1292,7 @@ app.post('/api/instructor/courses/:id/exams', requireAuth, requireTeacher, async
   const courseId = Number(req.params.id);
   const exam = validateExam(req.body);
   if (!Number.isInteger(courseId) || courseId <= 0 || !exam) {
-    return res.status(400).json({ message: 'Provide a course, title, subject, duration (5–60 minutes), marking, and at least one complete MCQ' });
+    return res.status(400).json({ message: 'Provide a course, title, subject, duration (5–60 minutes), marking, and at least one complete MCQ or fill-in-the-blank question' });
   }
   const connection = await pool.getConnection();
   try {
@@ -1274,10 +1313,10 @@ app.post('/api/instructor/courses/:id/exams', requireAuth, requireTeacher, async
       exam.perMcqMark, exam.negativeMarking, exam.shuffleMode]);
     for (const question of exam.questions) {
       await connection.query(`
-        INSERT INTO questions (test_id, question_text, options, correct_option, subject)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO questions (test_id, question_text, options, correct_option, subject, question_type, correct_answer)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `, [result.insertId, question.question_text, JSON.stringify(question.options),
-        question.correct_option, exam.subject]);
+        question.correct_option, exam.subject, question.question_type, question.correct_answer]);
     }
     await connection.commit();
     res.status(201).json({ message: 'Exam published', id: result.insertId });
@@ -1297,7 +1336,7 @@ app.get('/api/instructor/exams/:id', requireAuth, requireTeacher, async (req, re
   );
   if (!exam) return res.status(404).json({ message: 'Exam not found' });
   const [questions] = await pool.query(
-    'SELECT id, question_text, options, correct_option FROM questions WHERE test_id = ? ORDER BY id',
+    'SELECT id, question_text, options, correct_option, question_type, correct_answer FROM questions WHERE test_id = ? ORDER BY id',
     [req.params.id],
   );
   res.json({ exam: { ...exam, questions: questions.map((q) => ({
@@ -1307,7 +1346,7 @@ app.get('/api/instructor/exams/:id', requireAuth, requireTeacher, async (req, re
 
 app.put('/api/instructor/exams/:id', requireAuth, requireTeacher, async (req, res) => {
   const exam = validateExam(req.body);
-  if (!exam) return res.status(400).json({ message: 'Complete all exam fields and MCQs' });
+  if (!exam) return res.status(400).json({ message: 'Complete all exam fields and questions' });
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -1333,10 +1372,10 @@ app.put('/api/instructor/exams/:id', requireAuth, requireTeacher, async (req, re
     await connection.query('DELETE FROM questions WHERE test_id = ?', [req.params.id]);
     for (const question of exam.questions) {
       await connection.query(`
-        INSERT INTO questions (test_id, question_text, options, correct_option, subject)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO questions (test_id, question_text, options, correct_option, subject, question_type, correct_answer)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `, [req.params.id, question.question_text, JSON.stringify(question.options),
-        question.correct_option, exam.subject]);
+        question.correct_option, exam.subject, question.question_type, question.correct_answer]);
     }
     await connection.commit();
     res.json({ message: 'Exam updated' });

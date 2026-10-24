@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 
 class ApiConfig {
-  // Android emulators use 10.0.2.2 to reach the host machine.
-  // Web and desktop apps use localhost directly.
+  // Web and desktop apps connect to the backend on this PC.
+  // Your phone connects through the PC's local network address.
   static String get baseUrl {
     if (kIsWeb ||
         defaultTargetPlatform == TargetPlatform.windows ||
@@ -10,7 +10,8 @@ class ApiConfig {
         defaultTargetPlatform == TargetPlatform.linux) {
       return 'http://127.0.0.1:5000';
     }
-    return 'http://10.0.2.2:5000';
+
+    return 'http://192.168.0.112:5000';
   }
 
   // Auth endpoints
@@ -48,7 +49,7 @@ class ApiConfig {
   // Discussion endpoints
   static const String discussions = '/api/discussions';
 
-  // Study Circles
+  // Study circles
   static const String studyCircles = '/api/study-circles';
 
   // Health

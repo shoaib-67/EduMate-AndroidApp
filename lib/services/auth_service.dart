@@ -12,7 +12,9 @@ class AuthService {
     // hard reload. The session must always be reconciled with the database.
     final response = await _api.get(
       ApiConfig.currentUser,
-      queryParams: {'_refresh': DateTime.now().millisecondsSinceEpoch.toString()},
+      queryParams: {
+        '_refresh': DateTime.now().millisecondsSinceEpoch.toString(),
+      },
     );
     if (response.success && response.data is Map) {
       final data = response.data as Map<String, dynamic>;
@@ -98,12 +100,14 @@ class AuthService {
     return AuthResult(
       success: false,
       statusCode: response.statusCode,
-      message: response.statusCode == 409
-          ? 'এই ইমেইল বা ফোন নম্বর আগে ব্যবহার করা হয়েছে'
-          : _friendlyMessage(
-              response.statusCode,
-              fallback: 'রেজিস্ট্রেশন ব্যর্থ হয়েছে',
-            ),
+      message:
+          response.message ??
+          (response.statusCode == 409
+              ? 'এই ইমেইল বা ফোন নম্বর আগে ব্যবহার করা হয়েছে'
+              : _friendlyMessage(
+                  response.statusCode,
+                  fallback: 'রেজিস্ট্রেশন ব্যর্থ হয়েছে',
+                )),
     );
   }
 

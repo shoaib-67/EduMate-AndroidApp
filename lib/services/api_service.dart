@@ -62,7 +62,7 @@ class ApiService {
             headers: _headers,
             body: body != null ? jsonEncode(body) : null,
           )
-          .timeout(const Duration(seconds: 8));
+          .timeout(Duration(seconds: endpoint == '/api/auth/signup' ? 30 : 8));
       return _handleResponse(response);
     } catch (e) {
       return ApiResponse(

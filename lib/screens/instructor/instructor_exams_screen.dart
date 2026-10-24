@@ -290,8 +290,7 @@ class _InstructorExamsScreenState extends State<InstructorExamsScreen> {
                     const EmptyState(
                       icon: Icons.assignment_outlined,
                       title: 'এখনও কোনো পরীক্ষা নেই',
-                      subtitle:
-                          'এই কোর্সের জন্য একটি পরীক্ষা তৈরি করে MCQ যোগ করুন।',
+                      subtitle: 'এই কোর্সের জন্য MCQ ও শূন্যস্থান পূরণ প্রশ্ন যোগ করুন।',
                     ),
                   for (final exam in exams)
                     Padding(
@@ -587,9 +586,9 @@ class _ExamEditorState extends State<_ExamEditor> {
       return;
     }
     if (_questions.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('অন্তত একটি MCQ যোগ করুন')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('অন্তত একটি প্রশ্ন যোগ করুন')),
+      );
       return;
     }
     final duration = int.tryParse(_duration.text.trim());
@@ -794,7 +793,7 @@ class _ExamEditorState extends State<_ExamEditor> {
     _intro(
       context,
       'প্রশ্ন তৈরি করুন',
-      'একটি করে MCQ যোগ করুন। সম্পাদনা করতে যেকোনো প্রশ্নে চাপ দিন।',
+      'MCQ অথবা শূন্যস্থান পূরণ প্রশ্ন যোগ করুন। সম্পাদনা করতে প্রশ্নে চাপ দিন।',
     ),
     EduCard(
       padding: const EdgeInsets.all(18),
@@ -895,7 +894,9 @@ class _ExamEditorState extends State<_ExamEditor> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'সঠিক উত্তর: ${(_questions[i]['options'] as List)[(_questions[i]['correct_option'] as num).toInt()]}',
+                      _questions[i]['question_type'] == 'fill_blank'
+                          ? 'শূন্যস্থান পূরণ: ${_questions[i]['correct_answer']}'
+                          : 'সঠিক উত্তর: ${(_questions[i]['options'] as List)[(_questions[i]['correct_option'] as num).toInt()]}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall
@@ -960,7 +961,7 @@ class _ExamEditorState extends State<_ExamEditor> {
             const Divider(height: 28),
             _summaryRow(context, 'বিষয়', _subject.text.trim()),
             _summaryRow(context, 'সময়', '${_duration.text.trim()} মিনিট'),
-            _summaryRow(context, 'প্রশ্ন', '${_questions.length}টি MCQ'),
+            _summaryRow(context, 'প্রশ্ন', '${_questions.length}টি প্রশ্ন'),
             _summaryRow(
               context,
               'মোট নম্বর',
@@ -993,32 +994,39 @@ class _ExamEditorState extends State<_ExamEditor> {
               ),
               childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
               children: [
-                for (var j = 0; j < 4; j++)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Row(
-                      children: [
-                        Icon(
-                          j == (_questions[i]['correct_option'] as num).toInt()
-                              ? Icons.check_circle_rounded
-                              : Icons.circle_outlined,
-                          size: 18,
-                          color:
-                              j ==
-                                  (_questions[i]['correct_option'] as num)
-                                      .toInt()
-                              ? AppTheme.success
-                              : AppTheme.textMuted,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            '${String.fromCharCode(65 + j)}. ${(_questions[i]['options'] as List)[j]}',
+                if (_questions[i]['question_type'] == 'fill_blank')
+                  Text(
+                    'Accepted answer: ${_questions[i]['correct_answer']} (ignores case and extra spaces)',
+                  )
+                else
+                  for (var j = 0; j < 4; j++)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            j ==
+                                    (_questions[i]['correct_option'] as num)
+                                        .toInt()
+                                ? Icons.check_circle_rounded
+                                : Icons.circle_outlined,
+                            size: 18,
+                            color:
+                                j ==
+                                    (_questions[i]['correct_option'] as num)
+                                        .toInt()
+                                ? AppTheme.success
+                                : AppTheme.textMuted,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              '${String.fromCharCode(65 + j)}. ${(_questions[i]['options'] as List)[j]}',
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
               ],
             ),
           ),
@@ -1246,6 +1254,8 @@ class _QuestionEditorScreenState extends State<_QuestionEditorScreen> {
   late final TextEditingController _question;
   late final List<TextEditingController> _options;
   late int _correct;
+  late String _questionType;
+  late final TextEditingController _correctAnswer;
 
   @override
   void initState() {
@@ -1260,11 +1270,16 @@ class _QuestionEditorScreenState extends State<_QuestionEditorScreen> {
           TextEditingController(text: i < values.length ? '${values[i]}' : ''),
     );
     _correct = (widget.question?['correct_option'] as num?)?.toInt() ?? 0;
+    _questionType = widget.question?['question_type'] as String? ?? 'mcq';
+    _correctAnswer = TextEditingController(
+      text: widget.question?['correct_answer'] as String? ?? '',
+    );
   }
 
   @override
   void dispose() {
     _question.dispose();
+    _correctAnswer.dispose();
     for (final option in _options) {
       option.dispose();
     }
@@ -1275,8 +1290,14 @@ class _QuestionEditorScreenState extends State<_QuestionEditorScreen> {
     if (!_form.currentState!.validate()) return;
     Navigator.pop(context, {
       'question_text': _question.text.trim(),
-      'options': _options.map((option) => option.text.trim()).toList(),
-      'correct_option': _correct,
+      'question_type': _questionType,
+      'options': _questionType == 'mcq'
+          ? _options.map((option) => option.text.trim()).toList()
+          : <String>[],
+      'correct_option': _questionType == 'mcq' ? _correct : 0,
+      'correct_answer': _questionType == 'fill_blank'
+          ? _correctAnswer.text.trim()
+          : null,
     });
   }
 
@@ -1298,12 +1319,12 @@ class _QuestionEditorScreenState extends State<_QuestionEditorScreen> {
             padding: const EdgeInsets.all(20),
             children: [
               Text(
-                'MCQ প্রশ্ন লিখুন',
+                'প্রশ্ন লিখুন',
                 style: Theme.of(context).textTheme.headlineLarge,
               ),
               const SizedBox(height: 6),
               Text(
-                'চারটি অপশন লিখুন, তারপর সঠিক উত্তরের পাশের বৃত্তে চাপ দিন।',
+                'Choose MCQ or fill in the blank. Both use the exam marks per question and negative marking.',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 20),
@@ -1312,6 +1333,23 @@ class _QuestionEditorScreenState extends State<_QuestionEditorScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      initialValue: _questionType,
+                      decoration: const InputDecoration(
+                        labelText: 'Question type',
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'mcq', child: Text('MCQ')),
+                        DropdownMenuItem(
+                          value: 'fill_blank',
+                          child: Text('Fill in the blank'),
+                        ),
+                      ],
+                      onChanged: (value) =>
+                          setState(() => _questionType = value!),
+                    ),
+                    const SizedBox(height: 16),
                     TextFormField(
                       controller: _question,
                       maxLines: 3,
@@ -1327,51 +1365,67 @@ class _QuestionEditorScreenState extends State<_QuestionEditorScreen> {
                           : null,
                     ),
                     const SizedBox(height: 20),
-                    Text(
-                      'উত্তরের অপশন',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 12),
-                    for (var i = 0; i < 4; i++)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              onPressed: () => setState(() => _correct = i),
-                              icon: Icon(
-                                _correct == i
-                                    ? Icons.radio_button_checked_rounded
-                                    : Icons.radio_button_unchecked_rounded,
-                                color: _correct == i
-                                    ? AppTheme.success
-                                    : AppTheme.textMuted,
-                              ),
-                              tooltip:
-                                  'অপশন ${String.fromCharCode(65 + i)} সঠিক হিসেবে চিহ্নিত করুন',
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: TextFormField(
-                                controller: _options[i],
-                                decoration: InputDecoration(
-                                  labelText:
-                                      'অপশন ${String.fromCharCode(65 + i)}',
-                                ),
-                                validator: (value) =>
-                                    value == null || value.trim().isEmpty
-                                    ? 'একটি অপশন লিখুন'
-                                    : null,
-                              ),
-                            ),
-                          ],
+                    if (_questionType == 'fill_blank')
+                      TextFormField(
+                        controller: _correctAnswer,
+                        maxLength: 500,
+                        decoration: const InputDecoration(
+                          labelText: 'Correct answer',
+                          helperText: 'One blank per question. Grading ignores letter case and extra spaces.',
+                          helperMaxLines: 3,
                         ),
+                        validator: (value) =>
+                            value == null || value.trim().isEmpty
+                            ? 'Enter the correct answer'
+                            : null,
+                      )
+                    else ...[
+                      Text(
+                        'উত্তরের অপশন',
+                        style: Theme.of(context).textTheme.titleMedium,
                       ),
-                    Text(
-                      'সঠিক উত্তর: অপশন ${String.fromCharCode(65 + _correct)}',
-                      style: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(color: AppTheme.success),
-                    ),
+                      const SizedBox(height: 12),
+                      for (var i = 0; i < 4; i++)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            children: [
+                              IconButton(
+                                onPressed: () => setState(() => _correct = i),
+                                icon: Icon(
+                                  _correct == i
+                                      ? Icons.radio_button_checked_rounded
+                                      : Icons.radio_button_unchecked_rounded,
+                                  color: _correct == i
+                                      ? AppTheme.success
+                                      : AppTheme.textMuted,
+                                ),
+                                tooltip:
+                                    'অপশন ${String.fromCharCode(65 + i)} সঠিক হিসেবে চিহ্নিত করুন',
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _options[i],
+                                  decoration: InputDecoration(
+                                    labelText:
+                                        'অপশন ${String.fromCharCode(65 + i)}',
+                                  ),
+                                  validator: (value) =>
+                                      value == null || value.trim().isEmpty
+                                      ? 'একটি অপশন লিখুন'
+                                      : null,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      Text(
+                        'সঠিক উত্তর: অপশন ${String.fromCharCode(65 + _correct)}',
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(color: AppTheme.success),
+                      ),
+                    ],
                   ],
                 ),
               ),

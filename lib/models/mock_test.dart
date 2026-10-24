@@ -2,6 +2,9 @@ class Question {
   final int? id;
   final String questionText;
   final List<String> options;
+  final String questionType;
+  final String? correctAnswer;
+  bool get isFillBlank => questionType == 'fill_blank';
   final int? correctOption; // Answer key is only returned to administrators.
   final List<int>? optionOrder;
   final String? explanation;
@@ -11,6 +14,8 @@ class Question {
     this.id,
     required this.questionText,
     required this.options,
+    this.questionType = 'mcq',
+    this.correctAnswer,
     this.correctOption,
     this.optionOrder,
     this.explanation,
@@ -21,6 +26,8 @@ class Question {
     return Question(
       id: json['id'] as int?,
       questionText: json['question_text'] as String? ?? '',
+      questionType: json['question_type'] as String? ?? 'mcq',
+      correctAnswer: json['correct_answer'] as String?,
       options:
           (json['options'] as List<dynamic>?)
               ?.map((e) => e.toString())
@@ -38,6 +45,8 @@ class Question {
   Map<String, dynamic> toJson() {
     return {
       'question_text': questionText,
+      'question_type': questionType,
+      'correct_answer': correctAnswer,
       'options': options,
       'correct_option': correctOption,
       'explanation': explanation,

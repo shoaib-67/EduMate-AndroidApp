@@ -211,8 +211,18 @@ class StudentProvider extends ChangeNotifier {
     return response.success;
   }
 
-  Future<ApiResponse> submitTest(int testId, Map<int, int> answers) async {
-    final response = await _service.submitTest(testId, answers);
+  Future<ApiResponse> submitTest(
+    int testId,
+    Map<int, dynamic> answers, {
+    String? submissionId,
+    String reason = 'manual',
+  }) async {
+    final response = await _service.submitTest(
+      testId,
+      answers,
+      submissionId: submissionId,
+      reason: reason,
+    );
     if (!response.success) {
       _error = response.message;
       notifyListeners();

@@ -90,11 +90,18 @@ class StudentService {
     return null;
   }
 
-  Future<ApiResponse> submitTest(int testId, Map<int, int> answers) async {
+  Future<ApiResponse> submitTest(
+    int testId,
+    Map<int, dynamic> answers, {
+    String? submissionId,
+    String reason = 'manual',
+  }) async {
     return await _api.post(
       ApiConfig.studentSubmitTest,
       body: {
         'test_id': testId,
+        'submission_id': ?submissionId,
+        'submission_reason': reason,
         'answers': answers.map((k, v) => MapEntry(k.toString(), v)),
       },
     );
@@ -139,10 +146,7 @@ class StudentService {
   }) async {
     final body = <String, dynamic>{'title': title, 'content': content};
     if (courseId != null) body['course_id'] = courseId;
-    return await _api.post(
-      ApiConfig.discussions,
-      body: body,
-    );
+    return await _api.post(ApiConfig.discussions, body: body);
   }
 
   Future<ApiResponse> replyToDiscussion(

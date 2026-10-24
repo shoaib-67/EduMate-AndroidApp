@@ -156,6 +156,67 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Teacher can author and preview a fill-in-the-blank question', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final provider = _ExamTestProvider();
+    await tester.pumpWidget(
+      ChangeNotifierProvider<InstructorProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: InstructorExamsScreen(
+            course: Course(id: 1, title: 'Physics'),
+            openCreateOnLoad: true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).at(0), 'Blank Quiz');
+    await tester.enterText(find.byType(TextFormField).at(1), 'Geography');
+    await tester.tap(find.text('প্রশ্নে এগিয়ে যান'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('প্রথম প্রশ্ন যোগ করুন'));
+      await tester.pumpAndSettle();
+    await tester.tap(find.text('প্রথম প্রশ্ন যোগ করুন'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Fill in the blank').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextFormField).first,
+      'Capital of Bangladesh is ___',
+    );
+    await tester.enterText(find.byType(TextFormField).last, 'Dhaka');
+    tester.testTextInput.hide();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('প্রশ্ন সংরক্ষণ করুন'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('শূন্যস্থান পূরণ: Dhaka'), findsOneWidget);
+    await tester.tap(find.text('পরীক্ষা পর্যালোচনা করুন'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.textContaining('Capital of Bangladesh'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.textContaining('Capital of Bangladesh'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Accepted answer: Dhaka'), findsOneWidget);
+    await tester.tap(find.text('পরীক্ষা প্রকাশ করুন'));
+    await tester.pumpAndSettle();
+    final question = (provider.createdExam!['questions'] as List).single;
+    expect(question['question_type'], 'fill_blank');
+    expect(question['correct_answer'], 'Dhaka');
+    expect(question['options'], isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Teacher can create an exam from a course exam tab', (
     WidgetTester tester,
   ) async {
@@ -229,7 +290,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Exam timer resumes when submission fails', (
+  testWidgets('Exam stays locked with retry when submission fails', (
     WidgetTester tester,
   ) async {
     final exam = MockTest.fromJson({
@@ -257,7 +318,9 @@ void main() {
     await tester.tap(find.text('জমা দিন').last);
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
-    expect(find.text('00:59'), findsOneWidget);
+    expect(find.text('Exam ended'), findsOneWidget);
+    expect(find.text('Retry submission'), findsOneWidget);
+    expect(find.text('Two plus two?'), findsNothing);
   });
 
   testWidgets('Bottom navigation opens the selected role tab', (
@@ -1183,7 +1246,12 @@ class _FailedSubmissionProvider extends StudentProvider {
   _FailedSubmissionProvider() : super(StudentService(ApiService()));
 
   @override
-  Future<ApiResponse> submitTest(int testId, Map<int, int> answers) async {
+  Future<ApiResponse> submitTest(
+    int testId,
+    Map<int, dynamic> answers, {
+    String? submissionId,
+    String reason = 'manual',
+  }) async {
     return ApiResponse(success: false, statusCode: 503, message: 'Try again');
   }
 }
