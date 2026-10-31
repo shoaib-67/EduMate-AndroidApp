@@ -1,16 +1,24 @@
 import 'package:flutter/foundation.dart';
 
 class ApiConfig {
-  // Web and desktop apps connect to the backend on this PC.
-  // Your phone connects through the PC's local network address.
+  static const _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
+
   static String get baseUrl {
-    if (kIsWeb ||
-        defaultTargetPlatform == TargetPlatform.windows ||
+    if (_configuredBaseUrl.isNotEmpty) {
+      return _configuredBaseUrl.replaceFirst(RegExp(r'/+$'), '');
+    }
+    if (kIsWeb) {
+      final host = Uri.base.host;
+      if (host.isNotEmpty) {
+        return Uri(scheme: 'http', host: host, port: 5000).origin;
+      }
+    }
+    if (defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.macOS ||
         defaultTargetPlatform == TargetPlatform.linux) {
       return 'http://127.0.0.1:5000';
     }
-
+    // Physical Android devices use the development PC's LAN address.
     return 'http://192.168.0.112:5000';
   }
 
@@ -57,5 +65,7 @@ class ApiConfig {
 
   // Packages
   static const String packages = '/api/packages';
+  static String demoPurchase(int packageId) =>
+      '/api/student/packages/$packageId/demo-purchase';
   static const String adminPackages = '/api/admin/packages';
 }

@@ -17,11 +17,13 @@ class StudentProvider extends ChangeNotifier {
   Map<String, dynamic>? _dashboardData;
   bool _isDashboardLoading = false;
   bool _dashboardLoaded = false;
+  String? _dashboardError;
 
   // Courses
   List<Course> _courses = [];
   bool _isCoursesLoading = false;
   bool _coursesLoaded = false;
+  String? _coursesError;
 
   // Tests
   List<MockTest> _tests = [];
@@ -32,6 +34,7 @@ class StudentProvider extends ChangeNotifier {
   Performance? _performance;
   bool _isPerformanceLoading = false;
   bool _performanceLoaded = false;
+  String? _performanceError;
 
   // Discussions
   List<Discussion> _discussions = [];
@@ -46,15 +49,18 @@ class StudentProvider extends ChangeNotifier {
   Map<String, dynamic>? get dashboardData => _dashboardData;
   bool get isDashboardLoading => _isDashboardLoading;
   bool get dashboardLoaded => _dashboardLoaded;
+  String? get dashboardError => _dashboardError;
   List<Course> get courses => _courses;
   bool get isCoursesLoading => _isCoursesLoading;
   bool get coursesLoaded => _coursesLoaded;
+  String? get coursesError => _coursesError;
   List<MockTest> get tests => _tests;
   bool get isTestsLoading => _isTestsLoading;
   bool get testsLoaded => _testsLoaded;
   Performance? get performance => _performance;
   bool get isPerformanceLoading => _isPerformanceLoading;
   bool get performanceLoaded => _performanceLoaded;
+  String? get performanceError => _performanceError;
   List<Discussion> get discussions => _discussions;
   bool get isDiscussionsLoading => _isDiscussionsLoading;
   bool get discussionsLoaded => _discussionsLoaded;
@@ -70,14 +76,16 @@ class StudentProvider extends ChangeNotifier {
 
   Future<void> loadDashboard() async {
     _isDashboardLoading = true;
+    _dashboardError = null;
     _error = null;
     notifyListeners();
 
     try {
       _dashboardData = await _service.getDashboard();
-    } catch (_) {
+    } catch (error) {
       _dashboardData = null;
-      _error = 'ড্যাশবোর্ডের তথ্য পাওয়া যায়নি';
+      _dashboardError = error.toString().replaceFirst('Exception: ', '');
+      _error = _dashboardError;
     } finally {
       _dashboardLoaded = true;
       _isDashboardLoading = false;
@@ -87,13 +95,15 @@ class StudentProvider extends ChangeNotifier {
 
   Future<void> loadCourses() async {
     _isCoursesLoading = true;
+    _coursesError = null;
     notifyListeners();
 
     try {
       _courses = await _service.getCourses();
-    } catch (_) {
+    } catch (error) {
       _courses = [];
-      _error = 'কোর্সের তথ্য পাওয়া যায়নি';
+      _coursesError = error.toString().replaceFirst('Exception: ', '');
+      _error = _coursesError;
     } finally {
       _coursesLoaded = true;
       _isCoursesLoading = false;
@@ -110,6 +120,14 @@ class StudentProvider extends ChangeNotifier {
   }
 
   Future<List<PackagePlan>> getPackages() => _service.getPackages();
+
+  Future<ApiResponse> demoPurchase(int packageId) async {
+    final response = await _service.demoPurchase(packageId);
+    if (response.success) {
+      await Future.wait([loadCourses(), loadDashboard(), loadTests()]);
+    }
+    return response;
+  }
 
   Future<void> loadTests() async {
     _isTestsLoading = true;
@@ -130,13 +148,15 @@ class StudentProvider extends ChangeNotifier {
 
   Future<void> loadPerformance() async {
     _isPerformanceLoading = true;
+    _performanceError = null;
     notifyListeners();
 
     try {
       _performance = await _service.getPerformance();
-    } catch (_) {
+    } catch (error) {
       _performance = null;
-      _error = 'পারফরম্যান্সের তথ্য পাওয়া যায়নি';
+      _performanceError = error.toString().replaceFirst('Exception: ', '');
+      _error = _performanceError;
     } finally {
       _performanceLoaded = true;
       _isPerformanceLoading = false;

@@ -14,9 +14,11 @@ class InstructorProvider extends ChangeNotifier {
   Map<String, dynamic>? _dashboardData;
   bool _isDashboardLoading = false;
   bool _dashboardLoaded = false;
+  String? _dashboardError;
   List<Course> _courses = [];
   bool _isCoursesLoading = false;
   bool _coursesLoaded = false;
+  String? _coursesError;
   List<InstructorStudentResult> _studentResults = [];
   bool _isResultsLoading = false;
   bool _resultsLoaded = false;
@@ -27,9 +29,11 @@ class InstructorProvider extends ChangeNotifier {
   Map<String, dynamic>? get dashboardData => _dashboardData;
   bool get isDashboardLoading => _isDashboardLoading;
   bool get dashboardLoaded => _dashboardLoaded;
+  String? get dashboardError => _dashboardError;
   List<Course> get courses => _courses;
   bool get isCoursesLoading => _isCoursesLoading;
   bool get coursesLoaded => _coursesLoaded;
+  String? get coursesError => _coursesError;
   List<InstructorStudentResult> get studentResults => _studentResults;
   bool get isResultsLoading => _isResultsLoading;
   bool get resultsLoaded => _resultsLoaded;
@@ -45,11 +49,13 @@ class InstructorProvider extends ChangeNotifier {
 
   Future<void> loadDashboard() async {
     _isDashboardLoading = true;
+    _dashboardError = null;
     notifyListeners();
     try {
       _dashboardData = await _service.getDashboard();
-    } catch (_) {
+    } catch (error) {
       _dashboardData = null;
+      _dashboardError = error.toString().replaceFirst('Exception: ', '');
     } finally {
       _dashboardLoaded = true;
       _isDashboardLoading = false;
@@ -59,11 +65,13 @@ class InstructorProvider extends ChangeNotifier {
 
   Future<void> loadCourses() async {
     _isCoursesLoading = true;
+    _coursesError = null;
     notifyListeners();
     try {
       _courses = await _service.getCourses();
-    } catch (_) {
+    } catch (error) {
       _courses = [];
+      _coursesError = error.toString().replaceFirst('Exception: ', '');
     } finally {
       _coursesLoaded = true;
       _isCoursesLoading = false;

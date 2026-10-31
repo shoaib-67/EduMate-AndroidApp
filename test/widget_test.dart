@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:edumate/main.dart';
+import 'package:edumate/config/api_config.dart';
 import 'package:edumate/models/course.dart';
 import 'package:edumate/models/course_content.dart';
 import 'package:edumate/models/discussion.dart';
@@ -16,9 +17,14 @@ import 'package:edumate/screens/admin/admin_courses_screen.dart';
 import 'package:edumate/screens/admin/admin_dashboard.dart';
 import 'package:edumate/screens/student/student_dashboard.dart';
 import 'package:edumate/screens/student/packages_screen.dart';
+import 'package:edumate/screens/student/demo_checkout_screen.dart';
+import 'package:edumate/screens/student/performance_screen.dart';
+import 'package:edumate/screens/student/report_bug_screen.dart';
 import 'package:edumate/screens/student/discussion_screen.dart';
 import 'package:edumate/screens/student/course_details_screen.dart';
 import 'package:edumate/screens/student/test_taking_screen.dart';
+import 'package:edumate/screens/auth/login_screen.dart';
+import 'package:edumate/screens/auth/signup_screen.dart';
 import 'package:edumate/providers/admin_provider.dart';
 import 'package:edumate/providers/auth_provider.dart';
 import 'package:edumate/providers/instructor_provider.dart';
@@ -29,6 +35,7 @@ import 'package:edumate/services/instructor_service.dart';
 import 'package:edumate/services/student_service.dart';
 import 'package:edumate/widgets/role_bottom_navigation.dart';
 import 'package:edumate/widgets/dashboard_widgets.dart';
+import 'package:edumate/widgets/common_widgets.dart';
 import 'package:edumate/widgets/profile_form.dart';
 
 void main() {
@@ -181,7 +188,7 @@ void main() {
     await tester.tap(find.text('প্রশ্নে এগিয়ে যান'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('প্রথম প্রশ্ন যোগ করুন'));
-      await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
     await tester.tap(find.text('প্রথম প্রশ্ন যোগ করুন'));
     await tester.pumpAndSettle();
     await tester.tap(find.byType(DropdownButtonFormField<String>));
@@ -723,12 +730,13 @@ void main() {
     expect(find.text('১ মাসের প্ল্যান'), findsNothing);
     expect(provider.requests, 1);
 
-    await tester.tap(find.text('বিস্তারিত দেখুন'));
+    await tester.tap(find.text('প্যাকেজ দেখুন'));
     await tester.pumpAndSettle();
     expect(find.text('Premium lessons'), findsWidgets);
+    expect(find.text('৳299 /মাস'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.text('ঠিক আছে'));
+    await tester.tapAt(const Offset(5, 5));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('প্যাকেজ রিফ্রেশ করুন'));
     await tester.pumpAndSettle();
@@ -895,7 +903,12 @@ void main() {
     await tester.tap(discussionTab);
     await tester.pumpAndSettle();
     expect(find.text('Course question'), findsOneWidget);
-    await tester.tap(find.text('এই কোর্সে আলোচনা শুরু করুন'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(DiscussionScreen),
+        matching: find.byType(FloatingActionButton),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField).first, 'New topic');
     await tester.enterText(find.byType(TextFormField).last, 'Course question');
@@ -975,7 +988,12 @@ void main() {
     await tester.tap(discussionTab);
     await tester.pumpAndSettle();
     expect(find.text('Course question'), findsOneWidget);
-    await tester.tap(find.text('এই কোর্সে আলোচনা শুরু করুন'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(DiscussionScreen),
+        matching: find.byType(FloatingActionButton),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField).first, 'Teacher topic');
     await tester.enterText(find.byType(TextFormField).last, 'Course reminder');
@@ -992,6 +1010,289 @@ void main() {
     expect(discussionProvider.lastReply, 'Course answer');
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('Main role screens fit a compact phone with larger text', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final screens = <Widget>[
+      const StudentDashboard(),
+      const InstructorDashboard(),
+      const AdminDashboard(),
+      StudentCourseDetailsScreen(
+        course: Course(
+          id: 1,
+          title: 'Physics',
+          description: List.filled(18, 'A long course description. ').join(),
+        ),
+      ),
+      InstructorCourseContentScreen(course: Course(id: 1, title: 'Physics')),
+      const PackagesScreen(),
+      const DiscussionScreen(),
+      const LoginScreen(),
+      const SignupScreen(),
+      const PerformanceScreen(),
+      const ReportBugScreen(),
+      const ReportBugScreen(isInstructor: true),
+      const InstructorExamCoursePickerScreen(),
+      InstructorExamsScreen(course: Course(id: 1, title: 'Physics')),
+      DemoCheckoutScreen(
+        plan: PackagePlan(
+          id: 1,
+          title: 'Physics plan',
+          subtitle: 'Demo',
+          price: '500tk',
+          period: '3 mo',
+          features: const [],
+        ),
+      ),
+      TestTakingScreen(
+        test: MockTest(
+          id: 1,
+          title: 'Practice exam',
+          duration: 30,
+          questions: [
+            Question(
+              id: 1,
+              questionText: 'Sample question?',
+              options: ['A', 'B'],
+            ),
+          ],
+        ),
+      ),
+    ];
+
+    for (final screen in screens) {
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => AuthProvider(ApiService())),
+            ChangeNotifierProvider<StudentProvider>(
+              create: (_) => _StudentCourseDiscussionTestProvider(),
+            ),
+            ChangeNotifierProvider<InstructorProvider>(
+              create: (_) => _CourseExamTestProvider(),
+            ),
+            ChangeNotifierProvider<AdminProvider>(
+              create: (_) => _AdminTestProvider(),
+            ),
+          ],
+          child: MaterialApp(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: const TextScaler.linear(1.6)),
+              child: child!,
+            ),
+            home: screen,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: screen.runtimeType.toString(),
+      );
+      final tabCount = switch (screen) {
+        StudentDashboard() => 5,
+        InstructorDashboard() => 4,
+        AdminDashboard() => 6,
+        _ => 0,
+      };
+      for (var index = 1; index < tabCount; index++) {
+        tester
+            .widget<RoleBottomNavigation>(find.byType(RoleBottomNavigation))
+            .onTap!(index);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(
+          find.byType(RolePageHeader),
+          findsOneWidget,
+          reason: '${screen.runtimeType} tab $index',
+        );
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: '${screen.runtimeType} tab $index',
+        );
+      }
+    }
+  });
+
+  testWidgets('Package pages use consistent tablet content widths', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1024, 768);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<StudentProvider>(
+        create: (_) => _PackagesTestProvider(),
+        child: const MaterialApp(home: PackagesScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .getSize(
+            find.descendant(
+              of: find.byType(PageFrame),
+              matching: find.byType(ListView),
+            ),
+          )
+          .width,
+      720,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DemoCheckoutScreen(
+          plan: PackagePlan(
+            id: 1,
+            title: 'Physics plan',
+            subtitle: 'Demo',
+            price: '500tk',
+            period: '3 mo',
+            features: const [],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .getSize(
+            find.descendant(
+              of: find.byType(PageFrame),
+              matching: find.byType(ListView),
+            ),
+          )
+          .width,
+      520,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Student courses show a retry state when loading fails', (
+    WidgetTester tester,
+  ) async {
+    final api = _CourseLoadingApiService();
+    final provider = StudentProvider(StudentService(api));
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => AuthProvider(ApiService())),
+          ChangeNotifierProvider<StudentProvider>.value(value: provider),
+        ],
+        child: const MaterialApp(home: StudentDashboard(initialTab: 1)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('কোর্স লোড করা যায়নি'), findsOneWidget);
+    expect(find.text('কোর্স প্যাকেজ দেখুন'), findsNothing);
+
+    api.failCourses = false;
+    await tester.tap(find.text('আবার চেষ্টা করুন'));
+    await tester.pumpAndSettle();
+    expect(find.text('Physics'), findsOneWidget);
+    expect(provider.coursesError, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Student dashboard recovers from a failed data request', (
+    WidgetTester tester,
+  ) async {
+    final api = _CourseLoadingApiService()..failDashboard = true;
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => AuthProvider(ApiService())),
+          ChangeNotifierProvider<StudentProvider>(
+            create: (_) => StudentProvider(StudentService(api)),
+          ),
+        ],
+        child: const MaterialApp(home: StudentDashboard()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('ড্যাশবোর্ড লোড করা যায়নি'), findsOneWidget);
+
+    api.failDashboard = false;
+    await tester.tap(find.text('আবার চেষ্টা করুন'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DashboardHeader), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Performance distinguishes API failure from no data', (
+    WidgetTester tester,
+  ) async {
+    final api = _CourseLoadingApiService()..failPerformance = true;
+    final provider = StudentProvider(StudentService(api));
+    await tester.pumpWidget(
+      ChangeNotifierProvider<StudentProvider>.value(
+        value: provider,
+        child: const MaterialApp(home: PerformanceScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('পারফরম্যান্স লোড করা যায়নি'), findsOneWidget);
+    expect(find.text('কোনো পারফরম্যান্স ডাটা নেই'), findsNothing);
+
+    api.failPerformance = false;
+    await tester.tap(find.text('আবার চেষ্টা করুন'));
+    await tester.pumpAndSettle();
+    expect(provider.performanceError, isNull);
+    expect(find.text('পারফরম্যান্স লোড করা যায়নি'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+class _CourseLoadingApiService extends ApiService {
+  bool failCourses = true;
+  bool failDashboard = false;
+  bool failPerformance = false;
+
+  @override
+  Future<ApiResponse> get(
+    String endpoint, {
+    Map<String, String>? queryParams,
+  }) async {
+    if (endpoint == ApiConfig.studentCourses) {
+      return ApiResponse(
+        success: !failCourses,
+        statusCode: failCourses ? 503 : 200,
+        message: failCourses ? 'Server unavailable' : null,
+        data: failCourses
+            ? null
+            : {
+                'courses': [
+                  {'id': 1, 'title': 'Physics'},
+                ],
+              },
+      );
+    }
+    if (endpoint == ApiConfig.studentDashboard && failDashboard ||
+        endpoint == ApiConfig.studentPerformance && failPerformance) {
+      return ApiResponse(
+        success: false,
+        statusCode: 503,
+        message: 'Server unavailable',
+      );
+    }
+    return ApiResponse(
+      success: true,
+      statusCode: 200,
+      data: <String, dynamic>{},
+    );
+  }
 }
 
 class _DiscussionTestProvider extends StudentProvider {

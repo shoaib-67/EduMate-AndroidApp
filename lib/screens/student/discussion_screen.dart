@@ -129,187 +129,190 @@ class _DiscussionScreenState extends State<DiscussionScreen> {
                 ),
               ],
             ),
-      floatingActionButton: !canStartDiscussion || widget.embedded
+      floatingActionButton: !canStartDiscussion
           ? null
           : FloatingActionButton(
               onPressed: _showCreateDialog,
               backgroundColor: AppTheme.primaryColor,
               child: const Icon(Icons.add, color: Colors.white),
             ),
-      body: Column(
-        children: [
-          if (widget.embedded && canStartDiscussion)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _showCreateDialog,
-                  icon: const Icon(Icons.add_rounded),
-                  label: const Text('এই কোর্সে আলোচনা শুরু করুন'),
-                ),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: TextField(
-              onChanged: (value) => setState(() => _query = value),
-              decoration: const InputDecoration(
-                hintText: 'আলোচনা খুঁজুন',
-                prefixIcon: Icon(Icons.search_rounded),
-              ),
-            ),
-          ),
-          Expanded(
-            child: loading
-                ? const LoadingIndicator(message: 'লোড হচ্ছে...')
-                : _courseError != null
-                ? EmptyState(
-                    icon: Icons.wifi_off_rounded,
-                    title: _courseError!,
-                    actionText: 'আবার চেষ্টা করুন',
-                    onAction: _loadDiscussions,
-                  )
-                : discussions.isEmpty
-                ? EmptyState(
-                    icon: Icons.forum_rounded,
-                    title: query.isEmpty
-                        ? 'কোনো আলোচনা নেই'
-                        : 'কোনো আলোচনা পাওয়া যায়নি',
-                    subtitle: query.isEmpty
-                        ? (widget.isInstructor && widget.courseId == null
-                              ? 'শিক্ষার্থীরা আলোচনা শুরু করলে এখানে দেখা যাবে'
-                              : 'প্রথম আলোচনা শুরু করুন!')
-                        : 'অন্য কিছু দিয়ে খুঁজুন',
-                    actionText:
-                        query.isEmpty && !widget.embedded && canStartDiscussion
-                        ? 'আলোচনা শুরু করুন'
-                        : null,
-                    onAction:
-                        query.isEmpty && !widget.embedded && canStartDiscussion
-                        ? _showCreateDialog
-                        : null,
-                  )
-                : RefreshIndicator(
-                    onRefresh: _loadDiscussions,
-                    child: ListView.builder(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(20),
-                      itemCount: discussions.length,
-                      itemBuilder: (context, index) {
-                        final discussion = discussions[index];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: EduCard(
-                            onTap: () => _openDiscussion(discussion),
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      width: 36,
-                                      height: 36,
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.primaryColor.withAlpha(
-                                          25,
-                                        ),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          (discussion.authorName?.isNotEmpty ==
-                                                      true
-                                                  ? discussion.authorName!
-                                                  : 'U')
-                                              .substring(0, 1)
-                                              .toUpperCase(),
-                                          style: const TextStyle(
-                                            color: AppTheme.primaryColor,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '${discussion.authorName ?? 'অজ্ঞাত'} (${discussion.authorRole == 'instructor' ? 'শিক্ষক' : 'শিক্ষার্থী'})',
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .labelLarge,
-                                          ),
-                                          if (discussion.createdAt != null)
-                                            Text(
-                                              _formatDate(
-                                                discussion.createdAt!,
-                                              ),
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodySmall,
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                if (widget.isInstructor &&
-                                    widget.courseId == null &&
-                                    discussion.courseTitle != null) ...[
-                                  Text(
-                                    discussion.courseTitle!,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall,
-                                  ),
-                                  const SizedBox(height: 6),
-                                ],
-                                Text(
-                                  discussion.title,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium,
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  discussion.content,
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.comment_outlined,
-                                      size: 16,
-                                      color: AppTheme.textMuted,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${discussion.replyCount ?? 0} উত্তর',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: AppTheme.textMuted,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxHeight < 180;
+          final visibleDiscussions = compact ? source : discussions;
+          final visibleQuery = compact ? '' : query;
+          return Column(
+            children: [
+              if (!compact)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                  child: TextField(
+                    onChanged: (value) => setState(() => _query = value),
+                    decoration: const InputDecoration(
+                      hintText: 'আলোচনা খুঁজুন',
+                      prefixIcon: Icon(Icons.search_rounded),
                     ),
                   ),
-          ),
-        ],
+                ),
+              Expanded(
+                child: loading
+                    ? const LoadingIndicator(message: 'লোড হচ্ছে...')
+                    : _courseError != null
+                    ? EmptyState(
+                        icon: Icons.wifi_off_rounded,
+                        title: _courseError!,
+                        actionText: 'আবার চেষ্টা করুন',
+                        onAction: _loadDiscussions,
+                      )
+                    : visibleDiscussions.isEmpty
+                    ? EmptyState(
+                        icon: Icons.forum_rounded,
+                        title: visibleQuery.isEmpty
+                            ? 'কোনো আলোচনা নেই'
+                            : 'কোনো আলোচনা পাওয়া যায়নি',
+                        subtitle: visibleQuery.isEmpty
+                            ? (widget.isInstructor && widget.courseId == null
+                                  ? 'শিক্ষার্থীরা আলোচনা শুরু করলে এখানে দেখা যাবে'
+                                  : 'প্রথম আলোচনা শুরু করুন!')
+                            : 'অন্য কিছু দিয়ে খুঁজুন',
+                        actionText:
+                            visibleQuery.isEmpty &&
+                                !widget.embedded &&
+                                canStartDiscussion
+                            ? 'আলোচনা শুরু করুন'
+                            : null,
+                        onAction:
+                            visibleQuery.isEmpty &&
+                                !widget.embedded &&
+                                canStartDiscussion
+                            ? _showCreateDialog
+                            : null,
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _loadDiscussions,
+                        child: ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.all(20),
+                          itemCount: visibleDiscussions.length,
+                          itemBuilder: (context, index) {
+                            final discussion = visibleDiscussions[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: EduCard(
+                                onTap: () => _openDiscussion(discussion),
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          width: 36,
+                                          height: 36,
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.primaryColor
+                                                .withAlpha(25),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              (discussion
+                                                              .authorName
+                                                              ?.isNotEmpty ==
+                                                          true
+                                                      ? discussion.authorName!
+                                                      : 'U')
+                                                  .substring(0, 1)
+                                                  .toUpperCase(),
+                                              style: const TextStyle(
+                                                color: AppTheme.primaryColor,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                '${discussion.authorName ?? 'অজ্ঞাত'} (${discussion.authorRole == 'instructor' ? 'শিক্ষক' : 'শিক্ষার্থী'})',
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .labelLarge,
+                                              ),
+                                              if (discussion.createdAt != null)
+                                                Text(
+                                                  _formatDate(
+                                                    discussion.createdAt!,
+                                                  ),
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodySmall,
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    if (widget.isInstructor &&
+                                        widget.courseId == null &&
+                                        discussion.courseTitle != null) ...[
+                                      Text(
+                                        discussion.courseTitle!,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall,
+                                      ),
+                                      const SizedBox(height: 6),
+                                    ],
+                                    Text(
+                                      discussion.title,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      discussion.content,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium,
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.comment_outlined,
+                                          size: 16,
+                                          color: AppTheme.textMuted,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${discussion.replyCount ?? 0} উত্তর',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppTheme.textMuted,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -17,7 +17,7 @@ EduMate is an admission-preparation and learning platform with separate experien
 - Read and reply to instructor answers in course discussion threads
 - Submit bug reports or other issues directly from the application
 - Manage personal information, including name, phone number, and institution
-- Browse learning packages and compare the available package features
+- Browse course packages, complete a demo checkout, and access purchased courses on the dashboard
 
 ### Instructors
 
@@ -36,7 +36,7 @@ EduMate is an admission-preparation and learning platform with separate experien
 - View, create, freeze, unfreeze, and remove user accounts; frozen accounts cannot sign in or use existing sessions
 - Manage user roles and control access to student, instructor, and administrator features
 - Review bug reports, update their statuses, and monitor issue summaries
-- Create and manage courses, assign instructors and students, and manage learning packages
+- Create courses, attach packages to them, and manage student access
 - Update administrator profile information
 
 ### Platform
@@ -79,4 +79,10 @@ flutter run -d chrome
 The API creates the `edumate` database and tables automatically on startup. 
 Check the database connection at `http://localhost:5000/api/health`.
 
-The Chrome app connects automatically to `http://127.0.0.1:5000`. Android emulators use `http://10.0.2.2:5000`.
+The Chrome app connects to port 5000 on the same host that serves Flutter. The default physical Android address is `http://192.168.0.112:5000`; change it when your PC's LAN address changes. For an Android emulator, run:
+
+```powershell
+flutter run -d emulator-5554 --dart-define=API_BASE_URL=http://10.0.2.2:5000
+```
+
+You can set `API_BASE_URL` the same way for any other backend address.

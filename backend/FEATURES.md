@@ -10,6 +10,10 @@ Teachers can mix MCQs and fill-in-the-blank questions. Each blank question has o
 
 Leaving an active exam (tab/window focus loss, app switch, Home, screen lock, or back navigation) locks answers and submits them. Results appear when the app is visible again. A network failure shows a locked retry screen. Retries reuse a submission ID and cannot create duplicate attempts. This is a classroom demo safeguard: browsers and phones cannot guarantee a callback or network delivery when a process is forcibly killed or a device loses power. System interruptions such as a phone call can also end an exam.
 
+## Course packages
+
+An administrator creates a course, then links one or more packages to it. Students see linked packages and can follow the demo checkout link. Confirming a demo purchase records it and enrolls the student in the course in one database transaction. The course then appears in the student's dashboard and course list. No payment is processed or verified. Packages created before this feature are unlinked; an administrator must edit each one and select a course before students can see it. Existing enrollments remain available.
+
 ## Integration check
 
 Run `node --test test/*.test.js` from this folder. The integration check uses a temporary database and does not email real recipients or alter the demo database.

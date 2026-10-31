@@ -39,14 +39,25 @@ class MyBugReports extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.bug_report_outlined, color: AppTheme.accentOrange),
+              const Icon(
+                Icons.bug_report_outlined,
+                color: AppTheme.accentOrange,
+              ),
               const SizedBox(width: 10),
-              Text('My Bug Reports', style: Theme.of(context).textTheme.titleMedium),
+              Expanded(
+                child: Text(
+                  'My Bug Reports',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 14),
           if (reports.isEmpty)
-            Text('You have not submitted any bug reports.', style: Theme.of(context).textTheme.bodySmall)
+            Text(
+              'You have not submitted any bug reports.',
+              style: Theme.of(context).textTheme.bodySmall,
+            )
           else
             ...reports.map((item) {
               final report = item as Map<String, dynamic>;

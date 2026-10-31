@@ -10,7 +10,6 @@ import '../../widgets/dashboard_widgets.dart';
 import '../../widgets/my_bug_reports.dart';
 import '../../widgets/profile_form.dart';
 import '../../widgets/role_bottom_navigation.dart';
-import '../../utils/external_links.dart';
 import 'course_details_screen.dart';
 
 class StudentDashboard extends StatefulWidget {
@@ -92,7 +91,15 @@ class _StudentDashboardState extends State<StudentDashboard> {
     return Scaffold(
       body: SafeArea(
         child: _currentIndex == 0
-            ? _buildDashboardContent(auth, student)
+            ? student.dashboardError != null
+                  ? EmptyState(
+                      icon: Icons.cloud_off_rounded,
+                      title: 'ড্যাশবোর্ড লোড করা যায়নি',
+                      subtitle: student.dashboardError!,
+                      actionText: 'আবার চেষ্টা করুন',
+                      onAction: student.loadDashboard,
+                    )
+                  : _buildDashboardContent(auth, student)
             : _currentIndex == 1
             ? _buildCoursesTab()
             : _currentIndex == 2
@@ -144,7 +151,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              mainAxisExtent: 152,
+              mainAxisExtent: StatCard.gridExtent(context),
               children: [
                 StatCard(
                   icon: Icons.assignment_rounded,
@@ -207,7 +214,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
             DashboardQuickAction(
               icon: Icons.inventory_2_rounded,
               title: 'প্যাকেজ দেখুন',
-              subtitle: 'প্রিমিয়াম ফিচার আনলক করুন',
+              subtitle: 'আপনার জন্য একটি কোর্স প্যাকেজ বেছে নিন',
               color: AppTheme.accentPink,
               onTap: () => Navigator.of(context).pushNamed('/student/packages'),
             ),
@@ -238,7 +245,11 @@ class _StudentDashboardState extends State<StudentDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _tabHeader('অগ্রগতি', () => _showTab(2)),
+          RolePageHeader(
+            title: 'অগ্রগতি',
+            onBack: () => _showTab(2),
+            padding: EdgeInsets.zero,
+          ),
           const SizedBox(height: 8),
           Text(
             'আপনার অগ্রগতি',
@@ -256,7 +267,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            mainAxisExtent: 152,
+            mainAxisExtent: StatCard.gridExtent(context),
             children: [
               StatCard(
                 icon: Icons.bar_chart_rounded,
@@ -313,32 +324,16 @@ class _StudentDashboardState extends State<StudentDashboard> {
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          _tabHeader('প্রোফাইল', () => _showTab(0), showAboutUs: true),
+          RolePageHeader(
+            title: 'প্রোফাইল',
+            onBack: () => _showTab(0),
+            showAboutUs: true,
+            padding: EdgeInsets.zero,
+          ),
           const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: AppTheme.primaryGradient,
-            ),
-            child: Text(
-              (auth.user?.name ?? 'U').substring(0, 1).toUpperCase(),
-              style: const TextStyle(
-                fontSize: 36,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            auth.user?.name ?? '',
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            auth.user?.email ?? '',
-            style: Theme.of(context).textTheme.bodyMedium,
+          ProfileIdentity(
+            name: auth.user?.name ?? '',
+            email: auth.user?.email ?? '',
           ),
           const SizedBox(height: 32),
           ProfileForm(
@@ -410,32 +405,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
       ),
     );
   }
-
-  Widget _tabHeader(
-    String title,
-    VoidCallback onBack, {
-    bool showAboutUs = false,
-  }) {
-    return Row(
-      children: [
-        IconButton(
-          onPressed: onBack,
-          icon: const Icon(Icons.arrow_back_rounded, size: 20),
-          tooltip: 'হোমে ফিরুন',
-        ),
-        Text(title, style: Theme.of(context).textTheme.headlineLarge),
-        if (showAboutUs) ...[
-          const Spacer(),
-          TextButton(
-            onPressed: () {
-              openGreenEarthWebsite();
-            },
-            child: const Text('আমাদের সম্পর্কে'),
-          ),
-        ],
-      ],
-    );
-  }
 }
 
 class _InlineCoursesView extends StatefulWidget {
@@ -463,32 +432,28 @@ class _InlineCoursesViewState extends State<_InlineCoursesView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 20, 8),
-          child: Row(
-            children: [
-              IconButton(
-                onPressed: widget.onBack,
-                icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                tooltip: 'হোমে ফিরুন',
-              ),
-              Text(
-                'কোর্সসমূহ',
-                style: Theme.of(context).textTheme.headlineLarge,
-              ),
-            ],
-          ),
-        ),
+        RolePageHeader(title: 'কোর্সসমূহ', onBack: widget.onBack),
         Expanded(
           child: student.isCoursesLoading
               ? const LoadingIndicator(message: 'কোর্স লোড হচ্ছে...')
               : !student.coursesLoaded
               ? const LoadingIndicator(message: 'কোর্স লোড হচ্ছে...')
+              : student.coursesError != null
+              ? EmptyState(
+                  icon: Icons.cloud_off_rounded,
+                  title: 'কোর্স লোড করা যায়নি',
+                  subtitle: student.coursesError!,
+                  actionText: 'আবার চেষ্টা করুন',
+                  onAction: student.loadCourses,
+                )
               : student.courses.isEmpty
-              ? const EmptyState(
+              ? EmptyState(
                   icon: Icons.menu_book_rounded,
                   title: 'কোনো কোর্স পাওয়া যায়নি',
-                  subtitle: 'অ্যাডমিন আপনাকে কোর্সে যোগ করলে এখানে দেখা যাবে',
+                  subtitle: 'ডেমো চেকআউট শেষ করলে এখানে কোর্স দেখা যাবে।',
+                  actionText: 'কোর্স প্যাকেজ দেখুন',
+                  onAction: () =>
+                      Navigator.of(context).pushNamed('/student/packages'),
                 )
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -601,22 +566,7 @@ class _InlineTestsViewState extends State<_InlineTestsView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 20, 8),
-          child: Row(
-            children: [
-              IconButton(
-                onPressed: widget.onBack,
-                icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                tooltip: 'হোমে ফিরুন',
-              ),
-              Text(
-                'মক টেস্ট',
-                style: Theme.of(context).textTheme.headlineLarge,
-              ),
-            ],
-          ),
-        ),
+        RolePageHeader(title: 'মক টেস্ট', onBack: widget.onBack),
         Expanded(
           child: student.isTestsLoading
               ? const LoadingIndicator(message: 'টেস্ট লোড হচ্ছে...')

@@ -1,7 +1,131 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../utils/external_links.dart';
 import 'common_widgets.dart';
+
+class RolePageHeader extends StatelessWidget {
+  const RolePageHeader({
+    super.key,
+    required this.title,
+    this.onBack,
+    this.action,
+    this.showAboutUs = false,
+    this.padding = const EdgeInsets.all(20),
+  });
+
+  final String title;
+  final VoidCallback? onBack;
+  final Widget? action;
+  final bool showAboutUs;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: padding,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final stacked =
+              constraints.maxWidth < 340 && onBack != null && action != null;
+          final backButton = onBack == null
+              ? null
+              : IconButton(
+                  onPressed: onBack,
+                  icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                  tooltip: 'আগের পেজে ফিরুন',
+                );
+          final titleWidget = Text(
+            title,
+            style: Theme.of(context).textTheme.headlineLarge,
+          );
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (stacked) ...[
+                Row(children: [backButton!, const Spacer(), action!]),
+                titleWidget,
+              ] else
+                Row(
+                  children: [
+                    ?backButton,
+                    Expanded(child: titleWidget),
+                    ?action,
+                  ],
+                ),
+              if (showAboutUs)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: openGreenEarthWebsite,
+                    child: const Text('আমাদের সম্পর্কে'),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class ProfileIdentity extends StatelessWidget {
+  const ProfileIdentity({
+    super.key,
+    required this.name,
+    required this.email,
+    this.roleLabel,
+    this.roleColor = AppTheme.primaryColor,
+  });
+
+  final String name;
+  final String email;
+  final String? roleLabel;
+  final Color roleColor;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: AppTheme.primaryGradient,
+        ),
+        child: Text(
+          name.isEmpty ? '?' : name.substring(0, 1).toUpperCase(),
+          style: const TextStyle(
+            fontSize: 36,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+      ),
+      const SizedBox(height: 16),
+      Text(name, style: Theme.of(context).textTheme.headlineMedium),
+      const SizedBox(height: 4),
+      Text(email, style: Theme.of(context).textTheme.bodyMedium),
+      if (roleLabel != null) ...[
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: roleColor.withAlpha(25),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            roleLabel!,
+            style: TextStyle(
+              color: roleColor,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    ],
+  );
+}
 
 class DashboardHeader extends StatelessWidget {
   const DashboardHeader({

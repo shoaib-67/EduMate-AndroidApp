@@ -230,185 +230,173 @@ class _InstructorExamsScreenState extends State<InstructorExamsScreen> {
           return const LoadingIndicator();
         }
         if (snapshot.hasError) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('${snapshot.error}', textAlign: TextAlign.center),
-                OutlinedButton(
-                  onPressed: () => setState(_reload),
-                  child: const Text('আবার চেষ্টা করুন'),
-                ),
-              ],
-            ),
+          return EmptyState(
+            icon: Icons.cloud_off_rounded,
+            title: 'পরীক্ষা লোড করা যায়নি',
+            subtitle: '${snapshot.error}',
+            actionText: 'আবার চেষ্টা করুন',
+            onAction: () => setState(_reload),
           );
         }
         final exams = snapshot.data!;
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
-            child: RefreshIndicator(
-              onRefresh: () async {
-                setState(_reload);
-                await _exams;
-              },
-              child: ListView(
-                padding: const EdgeInsets.all(20),
-                children: [
-                  Text(
-                    widget.course.title,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'প্রকাশ করার সঙ্গে সঙ্গে শিক্ষার্থীরা পরীক্ষা দিতে পারবে।',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 20),
-                  FilledButton.icon(
-                    onPressed: () => _openEditor(),
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('নতুন পরীক্ষা তৈরি করুন'),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'আপনার পরীক্ষাগুলো',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
+        return PageFrame(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              setState(_reload);
+              await _exams;
+            },
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                Text(
+                  widget.course.title,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'প্রকাশ করার সঙ্গে সঙ্গে শিক্ষার্থীরা পরীক্ষা দিতে পারবে।',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  onPressed: () => _openEditor(),
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('নতুন পরীক্ষা তৈরি করুন'),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'আপনার পরীক্ষাগুলো',
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
-                      Text(
-                        '${exams.length}',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  if (exams.isEmpty)
-                    const EmptyState(
-                      icon: Icons.assignment_outlined,
-                      title: 'এখনও কোনো পরীক্ষা নেই',
-                      subtitle: 'এই কোর্সের জন্য MCQ ও শূন্যস্থান পূরণ প্রশ্ন যোগ করুন।',
                     ),
-                  for (final exam in exams)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: EduCard(
-                        onTap: (exam['attempt_count'] as num? ?? 0) > 0
-                            ? null
-                            : () => _openEditor(exam['id'] as int),
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    '${exam['title']}',
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium,
+                    Text(
+                      '${exams.length}',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (exams.isEmpty)
+                  const EmptyState(
+                    icon: Icons.assignment_outlined,
+                    title: 'এখনও কোনো পরীক্ষা নেই',
+                    subtitle: 'এই কোর্সের জন্য MCQ ও শূন্যস্থান পূরণ প্রশ্ন যোগ করুন।',
+                  ),
+                for (final exam in exams)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: EduCard(
+                      onTap: (exam['attempt_count'] as num? ?? 0) > 0
+                          ? null
+                          : () => _openEditor(exam['id'] as int),
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${exam['title']}',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium,
+                                ),
+                              ),
+                              PopupMenuButton<String>(
+                                tooltip: 'পরীক্ষার কাজ',
+                                itemBuilder: (_) => [
+                                  PopupMenuItem(
+                                    value: 'edit',
+                                    enabled:
+                                        (exam['attempt_count'] as num? ?? 0) ==
+                                        0,
+                                    child: const Text('পরীক্ষা সম্পাদনা'),
                                   ),
-                                ),
-                                PopupMenuButton<String>(
-                                  tooltip: 'পরীক্ষার কাজ',
-                                  itemBuilder: (_) => [
-                                    PopupMenuItem(
-                                      value: 'edit',
-                                      enabled:
-                                          (exam['attempt_count'] as num? ??
-                                              0) ==
-                                          0,
-                                      child: const Text('পরীক্ষা সম্পাদনা'),
+                                  PopupMenuItem(
+                                    value: 'visibility',
+                                    child: Text(
+                                      _isPublished(exam)
+                                          ? 'শিক্ষার্থীদের কাছ থেকে লুকান'
+                                          : 'শিক্ষার্থীদের জন্য প্রকাশ করুন',
                                     ),
-                                    PopupMenuItem(
-                                      value: 'visibility',
-                                      child: Text(
-                                        _isPublished(exam)
-                                            ? 'শিক্ষার্থীদের কাছ থেকে লুকান'
-                                            : 'শিক্ষার্থীদের জন্য প্রকাশ করুন',
-                                      ),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'delete',
-                                      enabled:
-                                          (exam['attempt_count'] as num? ??
-                                              0) ==
-                                          0,
-                                      child: const Text('পরীক্ষা মুছে ফেলুন'),
-                                    ),
-                                  ],
-                                  onSelected: (action) {
-                                    if (action == 'edit') {
-                                      _openEditor(exam['id'] as int);
-                                    }
-                                    if (action == 'visibility') _toggle(exam);
-                                    if (action == 'delete') _delete(exam);
-                                  },
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                _MetaChip(
-                                  icon: Icons.topic_outlined,
-                                  text: '${exam['subject'] ?? 'সাধারণ'}',
-                                ),
-                                _MetaChip(
-                                  icon: Icons.timer_outlined,
-                                  text: '${exam['duration']} মিনিট',
-                                ),
-                                _MetaChip(
-                                  icon: Icons.help_outline,
-                                  text: '${exam['total_questions']}টি প্রশ্ন',
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Icon(
-                                  _isPublished(exam)
-                                      ? Icons.check_circle_rounded
-                                      : Icons.visibility_off_outlined,
-                                  size: 16,
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'delete',
+                                    enabled:
+                                        (exam['attempt_count'] as num? ?? 0) ==
+                                        0,
+                                    child: const Text('পরীক্ষা মুছে ফেলুন'),
+                                  ),
+                                ],
+                                onSelected: (action) {
+                                  if (action == 'edit') {
+                                    _openEditor(exam['id'] as int);
+                                  }
+                                  if (action == 'visibility') _toggle(exam);
+                                  if (action == 'delete') _delete(exam);
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _MetaChip(
+                                icon: Icons.topic_outlined,
+                                text: '${exam['subject'] ?? 'সাধারণ'}',
+                              ),
+                              _MetaChip(
+                                icon: Icons.timer_outlined,
+                                text: '${exam['duration']} মিনিট',
+                              ),
+                              _MetaChip(
+                                icon: Icons.help_outline,
+                                text: '${exam['total_questions']}টি প্রশ্ন',
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Icon(
+                                _isPublished(exam)
+                                    ? Icons.check_circle_rounded
+                                    : Icons.visibility_off_outlined,
+                                size: 16,
+                                color: _isPublished(exam)
+                                    ? AppTheme.success
+                                    : AppTheme.textMuted,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _isPublished(exam) ? 'প্রকাশিত' : 'লুকানো',
+                                style: TextStyle(
                                   color: _isPublished(exam)
                                       ? AppTheme.success
                                       : AppTheme.textMuted,
                                 ),
-                                const SizedBox(width: 6),
+                              ),
+                              const Spacer(),
+                              if ((exam['attempt_count'] as num? ?? 0) > 0)
                                 Text(
-                                  _isPublished(exam) ? 'প্রকাশিত' : 'লুকানো',
-                                  style: TextStyle(
-                                    color: _isPublished(exam)
-                                        ? AppTheme.success
-                                        : AppTheme.textMuted,
-                                  ),
+                                  '${exam['attempt_count']} বার চেষ্টা',
+                                  style: Theme.of(context).textTheme.bodySmall,
                                 ),
-                                const Spacer(),
-                                if ((exam['attempt_count'] as num? ?? 0) > 0)
-                                  Text(
-                                    '${exam['attempt_count']} বার চেষ্টা',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall,
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
           ),
         );
@@ -437,10 +425,12 @@ class _MetaChip extends StatelessWidget {
       children: [
         Icon(icon, size: 14, color: AppTheme.primaryColor),
         const SizedBox(width: 5),
-        Text(
-          text,
-          style: Theme.of(context).textTheme.bodySmall
-              ?.copyWith(color: AppTheme.primaryColor),
+        Flexible(
+          child: Text(
+            text,
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: AppTheme.primaryColor),
+          ),
         ),
       ],
     ),

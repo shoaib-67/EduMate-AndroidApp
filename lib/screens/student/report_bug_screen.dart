@@ -62,57 +62,60 @@ class _ReportBugScreenState extends State<ReportBugScreen> {
         selectedIndex: widget.isInstructor ? 3 : 4,
       ),
       appBar: AppBar(title: const Text('বাগ রিপোর্ট')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'সমস্যা জানান',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'আপনার অভিজ্ঞতা উন্নত করতে আমাদের সাহায্য করুন',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 24),
-            EduCard(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  TextFormField(
-                    controller: _titleCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'সমস্যার শিরোনাম',
-                      hintText: 'সংক্ষেপে সমস্যাটি লিখুন',
-                      prefixIcon: Icon(Icons.bug_report_outlined, size: 20),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _descCtrl,
-                    maxLines: 6,
-                    decoration: const InputDecoration(
-                      labelText: 'বিস্তারিত বিবরণ',
-                      hintText: 'সমস্যাটি বিস্তারিতভাবে বর্ণনা করুন...',
-                      alignLabelWithHint: true,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: EduButton(
-                      text: 'রিপোর্ট পাঠান',
-                      isLoading: _isSubmitting,
-                      icon: Icons.send_rounded,
-                      onPressed: _submit,
-                    ),
-                  ),
-                ],
+      body: PageFrame(
+        maxWidth: 520,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'সমস্যা জানান',
+                style: Theme.of(context).textTheme.headlineMedium,
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                'আপনার অভিজ্ঞতা উন্নত করতে আমাদের সাহায্য করুন',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 24),
+              EduCard(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    TextFormField(
+                      controller: _titleCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'সমস্যার শিরোনাম',
+                        hintText: 'সংক্ষেপে সমস্যাটি লিখুন',
+                        prefixIcon: Icon(Icons.bug_report_outlined, size: 20),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _descCtrl,
+                      maxLines: 6,
+                      decoration: const InputDecoration(
+                        labelText: 'বিস্তারিত বিবরণ',
+                        hintText: 'সমস্যাটি বিস্তারিতভাবে বর্ণনা করুন...',
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: EduButton(
+                        text: 'রিপোর্ট পাঠান',
+                        isLoading: _isSubmitting,
+                        icon: Icons.send_rounded,
+                        onPressed: _submit,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

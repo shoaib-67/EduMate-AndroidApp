@@ -6,6 +6,7 @@ import '../../providers/student_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/role_bottom_navigation.dart';
+import 'demo_checkout_screen.dart';
 
 class PackagesScreen extends StatefulWidget {
   const PackagesScreen({super.key});
@@ -40,10 +41,10 @@ class _PackagesScreenState extends State<PackagesScreen> {
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (context) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(context).height * .8,
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * .8,
           ),
           child: SingleChildScrollView(
             child: Padding(
@@ -59,12 +60,14 @@ class _PackagesScreenState extends State<PackagesScreen> {
                   const SizedBox(height: 8),
                   Text(
                     plan.subtitle,
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    style: Theme.of(sheetContext).textTheme.bodyMedium,
                   ),
+                  const SizedBox(height: 8),
+                  Text('কোর্স: ${plan.courseTitle}'),
                   const SizedBox(height: 16),
                   Text(
-                    '${plan.price}${plan.period}',
-                    style: Theme.of(context).textTheme.headlineLarge
+                    '${plan.price} ${plan.period}'.trim(),
+                    style: Theme.of(sheetContext).textTheme.headlineLarge
                         ?.copyWith(color: AppTheme.primaryColor),
                   ),
                   const SizedBox(height: 20),
@@ -87,8 +90,21 @@ class _PackagesScreenState extends State<PackagesScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('ঠিক আছে'),
+                      onPressed: () {
+                        Navigator.pop(sheetContext);
+                        if (!plan.hasAccess) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => DemoCheckoutScreen(plan: plan),
+                            ),
+                          );
+                        }
+                      },
+                      child: Text(
+                        plan.hasAccess
+                            ? 'কোর্সটি আপনার তালিকায় আছে'
+                            : 'ডেমো চেকআউট খুলুন',
+                      ),
                     ),
                   ),
                 ],
@@ -108,7 +124,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
         selectedIndex: 0,
       ),
       appBar: AppBar(
-        title: const Text('ফিচার প্যাকেজ'),
+        title: const Text('কোর্স প্যাকেজ'),
         actions: [
           IconButton(
             tooltip: 'প্যাকেজ রিফ্রেশ করুন',
@@ -117,64 +133,66 @@ class _PackagesScreenState extends State<PackagesScreen> {
           ),
         ],
       ),
-      body: FutureBuilder<List<PackagePlan>>(
-        future: _packages,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const LoadingIndicator(message: 'প্যাকেজ লোড হচ্ছে...');
-          }
-          if (snapshot.hasError) {
-            return EmptyState(
-              icon: Icons.wifi_off_rounded,
-              title: 'প্যাকেজ লোড করা যায়নি',
-              subtitle: '${snapshot.error}',
-              actionText: 'আবার চেষ্টা করুন',
-              onAction: _refresh,
-            );
-          }
-          final managedPackages = snapshot.data ?? [];
-          if (managedPackages.isEmpty) {
-            return EmptyState(
-              icon: Icons.inventory_2_outlined,
-              title: 'এখন কোনো প্যাকেজ নেই',
-              subtitle: 'নতুন প্যাকেজ যোগ হলে এখানে দেখা যাবে।',
-              actionText: 'রিফ্রেশ করুন',
-              onAction: _refresh,
-            );
-          }
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'আপনার প্রস্তুতির জন্য\nউপযুক্ত প্ল্যান দেখুন',
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'উপলব্ধ প্যাকেজগুলোর সুবিধা ও মূল্য দেখে নিন।',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-                ),
-                ...managedPackages.map(
-                  (plan) => Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: _PlanCard(
-                      plan: plan,
-                      onTap: () => _showDetails(plan),
+      body: PageFrame(
+        child: FutureBuilder<List<PackagePlan>>(
+          future: _packages,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const LoadingIndicator(message: 'প্যাকেজ লোড হচ্ছে...');
+            }
+            if (snapshot.hasError) {
+              return EmptyState(
+                icon: Icons.wifi_off_rounded,
+                title: 'প্যাকেজ লোড করা যায়নি',
+                subtitle: '${snapshot.error}',
+                actionText: 'আবার চেষ্টা করুন',
+                onAction: _refresh,
+              );
+            }
+            final managedPackages = snapshot.data ?? [];
+            if (managedPackages.isEmpty) {
+              return EmptyState(
+                icon: Icons.inventory_2_outlined,
+                title: 'এখন কোনো প্যাকেজ নেই',
+                subtitle: 'নতুন প্যাকেজ যোগ হলে এখানে দেখা যাবে।',
+                actionText: 'রিফ্রেশ করুন',
+                onAction: _refresh,
+              );
+            }
+            return RefreshIndicator(
+              onRefresh: _refresh,
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'আপনার প্রস্তুতির জন্য\nউপযুক্ত প্ল্যান দেখুন',
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'উপলব্ধ প্যাকেজগুলোর সুবিধা ও মূল্য দেখে নিন।',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                  ...managedPackages.map(
+                    (plan) => Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: _PlanCard(
+                        plan: plan,
+                        onTap: () => _showDetails(plan),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          );
-        },
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -230,8 +248,10 @@ class _PlanCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.end,
+            spacing: 8,
+            runSpacing: 4,
             children: [
               Text(
                 plan.price,
@@ -242,7 +262,7 @@ class _PlanCard extends StatelessWidget {
               ),
               if (plan.period.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 4, left: 2),
+                  padding: const EdgeInsets.only(bottom: 4),
                   child: Text(
                     plan.period,
                     style: Theme.of(context).textTheme.bodySmall,
@@ -251,6 +271,11 @@ class _PlanCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
+          Text(
+            'কোর্স: ${plan.courseTitle}',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 12),
           ...plan.features.map(
             (f) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
@@ -276,7 +301,9 @@ class _PlanCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: EduButton(
-              text: 'বিস্তারিত দেখুন',
+              text: plan.hasAccess
+                  ? 'কোর্সটি আপনার তালিকায় আছে'
+                  : 'প্যাকেজ দেখুন',
               isOutlined: true,
               onPressed: onTap,
             ),

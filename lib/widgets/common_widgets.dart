@@ -2,6 +2,22 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
+class PageFrame extends StatelessWidget {
+  const PageFrame({super.key, required this.child, this.maxWidth = 720});
+
+  final Widget child;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.topCenter,
+    child: ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: child,
+    ),
+  );
+}
+
 class EduCard extends StatefulWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -70,6 +86,11 @@ class _EduCardState extends State<EduCard> {
 }
 
 class StatCard extends StatelessWidget {
+  static double gridExtent(BuildContext context) {
+    final scaler = MediaQuery.textScalerOf(context);
+    return 152 + scaler.scale(28) - 28 + scaler.scale(14) - 14;
+  }
+
   final IconData icon;
   final String label;
   final String value;
@@ -221,7 +242,7 @@ class EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,

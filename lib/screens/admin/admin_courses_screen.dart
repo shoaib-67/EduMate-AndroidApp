@@ -5,6 +5,7 @@ import '../../models/course.dart';
 import '../../providers/admin_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/dashboard_widgets.dart';
 
 class AdminCoursesScreen extends StatefulWidget {
   const AdminCoursesScreen({super.key, required this.onBack});
@@ -31,46 +32,25 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              IconButton(
-                onPressed: widget.onBack,
-                icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                tooltip: 'আগের পেজে ফিরুন',
-              ),
-              Expanded(
-                child: Text(
-                  'কোর্সসমূহ',
-                  style: Theme.of(context).textTheme.headlineLarge,
-                ),
-              ),
-              IconButton(
-                onPressed: () => _showCourseDialog(),
-                icon: const Icon(Icons.add_circle_rounded),
-                tooltip: 'নতুন কোর্স যোগ করুন',
-              ),
-            ],
+        RolePageHeader(
+          title: 'কোর্সসমূহ',
+          onBack: widget.onBack,
+          action: IconButton(
+            onPressed: () => _showCourseDialog(),
+            icon: const Icon(Icons.add_circle_rounded),
+            tooltip: 'নতুন কোর্স যোগ করুন',
           ),
         ),
         Expanded(
           child: admin.isCoursesLoading || !admin.coursesLoaded
               ? const LoadingIndicator()
               : admin.coursesError != null
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(admin.coursesError!, textAlign: TextAlign.center),
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: admin.loadCourses,
-                        icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('আবার চেষ্টা করুন'),
-                      ),
-                    ],
-                  ),
+              ? EmptyState(
+                  icon: Icons.cloud_off_rounded,
+                  title: 'কোর্স লোড করা যায়নি',
+                  subtitle: admin.coursesError!,
+                  actionText: 'আবার চেষ্টা করুন',
+                  onAction: admin.loadCourses,
                 )
               : admin.courses.isEmpty
               ? const EmptyState(

@@ -433,17 +433,21 @@ class _InstructorCourseContentScreenState
             )
           : Column(
               children: [
-                TabBar(
-                  controller: _tabController,
-                  isScrollable: true,
-                  tabs: [
-                    Tab(text: 'PDF / নোট'),
-                    Tab(text: 'ভিডিও'),
-                    Tab(text: 'লাইভ ক্লাস'),
-                    Tab(text: 'আলোচনা'),
-                    Tab(text: 'পরীক্ষা'),
-                  ],
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: TabBar(
+                    controller: _tabController,
+                    isScrollable: true,
+                    tabs: const [
+                      Tab(text: 'PDF / নোট'),
+                      Tab(text: 'ভিডিও'),
+                      Tab(text: 'লাইভ ক্লাস'),
+                      Tab(text: 'আলোচনা'),
+                      Tab(text: 'পরীক্ষা'),
+                    ],
+                  ),
                 ),
+                const SizedBox(height: 8),
                 Expanded(
                   child: TabBarView(
                     controller: _tabController,

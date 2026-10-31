@@ -14,6 +14,7 @@ class AdminProvider extends ChangeNotifier {
   Map<String, dynamic>? _dashboardData;
   bool _isDashboardLoading = false;
   bool _dashboardLoaded = false;
+  String? _dashboardError;
   List<User> _users = [];
   bool _isUsersLoading = false;
   bool _usersLoaded = false;
@@ -32,10 +33,12 @@ class AdminProvider extends ChangeNotifier {
   String? _error;
   List<PackagePlan> _packages = [];
   bool _packagesLoaded = false;
+  String? _packageError;
 
   Map<String, dynamic>? get dashboardData => _dashboardData;
   bool get isDashboardLoading => _isDashboardLoading;
   bool get dashboardLoaded => _dashboardLoaded;
+  String? get dashboardError => _dashboardError;
   List<User> get users => _users;
   bool get isUsersLoading => _isUsersLoading;
   bool get usersLoaded => _usersLoaded;
@@ -54,14 +57,17 @@ class AdminProvider extends ChangeNotifier {
   String? get error => _error;
   List<PackagePlan> get packages => _packages;
   bool get packagesLoaded => _packagesLoaded;
+  String? get packageError => _packageError;
 
   Future<void> loadDashboard() async {
     _isDashboardLoading = true;
+    _dashboardError = null;
     notifyListeners();
     try {
       _dashboardData = await _service.getDashboard();
-    } catch (_) {
+    } catch (error) {
       _dashboardData = null;
+      _dashboardError = error.toString().replaceFirst('Exception: ', '');
     } finally {
       _dashboardLoaded = true;
       _isDashboardLoading = false;
@@ -226,19 +232,27 @@ class AdminProvider extends ChangeNotifier {
   }
 
   Future<void> loadPackages() async {
-    _packages = await _service.getPackages();
-    _packagesLoaded = true;
-    notifyListeners();
+    try {
+      _packages = await _service.getPackages();
+      _packageError = null;
+    } catch (error) {
+      _packageError = error.toString().replaceFirst('Exception: ', '');
+    } finally {
+      _packagesLoaded = true;
+      notifyListeners();
+    }
   }
 
   Future<bool> createPackage(Map<String, dynamic> data) async {
     final result = await _service.createPackage(data);
+    _packageError = result.success ? null : result.message;
     if (result.success) await loadPackages();
     return result.success;
   }
 
   Future<bool> updatePackage(int id, Map<String, dynamic> data) async {
     final result = await _service.updatePackage(id, data);
+    _packageError = result.success ? null : result.message;
     if (result.success) await loadPackages();
     return result.success;
   }

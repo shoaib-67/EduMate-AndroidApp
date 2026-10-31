@@ -14,12 +14,18 @@ class StudentService {
 
   Future<Map<String, dynamic>?> getDashboard() async {
     final response = await _api.get(ApiConfig.studentDashboard);
-    if (response.success) return response.data as Map<String, dynamic>?;
-    return null;
+    if (!response.success) {
+      throw Exception(response.message ?? 'ড্যাশবোর্ডের তথ্য পাওয়া যায়নি');
+    }
+    if (response.data is! Map) throw Exception('Invalid dashboard response');
+    return Map<String, dynamic>.from(response.data as Map);
   }
 
   Future<List<Course>> getCourses() async {
     final response = await _api.get(ApiConfig.studentCourses);
+    if (!response.success) {
+      throw Exception(response.message ?? 'কোর্সের তথ্য পাওয়া যায়নি');
+    }
     if (response.success && response.data != null) {
       final list = response.data is Map
           ? (response.data['courses'] as List<dynamic>? ?? [])
@@ -43,6 +49,9 @@ class StudentService {
     }
     return [];
   }
+
+  Future<ApiResponse> demoPurchase(int packageId) =>
+      _api.post(ApiConfig.demoPurchase(packageId));
 
   Future<Map<String, dynamic>?> getCourseDetails(int courseId) async {
     final response = await _api.get('${ApiConfig.studentCourses}/$courseId');
@@ -109,6 +118,9 @@ class StudentService {
 
   Future<Performance?> getPerformance() async {
     final response = await _api.get(ApiConfig.studentPerformance);
+    if (!response.success) {
+      throw Exception(response.message ?? 'পারফরম্যান্সের তথ্য পাওয়া যায়নি');
+    }
     if (response.success && response.data != null) {
       return Performance.fromJson(response.data as Map<String, dynamic>);
     }

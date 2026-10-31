@@ -37,6 +37,34 @@ CREATE TABLE IF NOT EXISTS course_enrollments (
   FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS packages (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  course_id INT NULL,
+  title VARCHAR(180) NOT NULL,
+  subtitle VARCHAR(255),
+  price VARCHAR(50) NOT NULL,
+  period VARCHAR(50),
+  features JSON NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_packages_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS package_purchases (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  package_id INT NULL,
+  course_id INT NULL,
+  student_id INT NOT NULL,
+  package_title VARCHAR(180) NOT NULL,
+  course_title VARCHAR(180) NOT NULL,
+  price_snapshot VARCHAR(50) NOT NULL,
+  purchase_type ENUM('demo') NOT NULL DEFAULT 'demo',
+  purchased_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_package_purchase (student_id, package_id),
+  FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE SET NULL,
+  FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE SET NULL,
+  FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS reports (
   id INT PRIMARY KEY AUTO_INCREMENT,
   user_id INT,

@@ -53,119 +53,117 @@ class _InstructorStudentResultsScreenState
         role: AppRole.instructor,
         selectedIndex: 2,
       ),
-      body: FutureBuilder<List<InstructorExamResult>>(
-        future: _results,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const LoadingIndicator();
-          }
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+      body: PageFrame(
+        child: FutureBuilder<List<InstructorExamResult>>(
+          future: _results,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const LoadingIndicator();
+            }
+            if (snapshot.hasError) {
+            return EmptyState(
+              icon: Icons.cloud_off_rounded,
+              title: 'ফলাফল লোড করা যায়নি',
+              actionText: 'আবার চেষ্টা করুন',
+              onAction: _refresh,
+              );
+            }
+            final results = snapshot.data ?? [];
+            return RefreshIndicator(
+              onRefresh: _refresh,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(20),
                 children: [
-                  const Text('ফলাফল লোড করা যায়নি'),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: _refresh,
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('আবার চেষ্টা করুন'),
+                  EduCard(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.student.email,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${widget.student.enrolledCourses}টি কোর্স • ${results.length}টি পরীক্ষা দেওয়া হয়েছে',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          results.isEmpty
+                              ? 'গড় স্কোর: এখনও ফলাফল নেই'
+                              : 'গড় স্কোর: ${_score(results.map((item) => item.score).reduce((a, b) => a + b) / results.length)}',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'পরীক্ষার ফলাফল',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 12),
+                  if (results.isEmpty)
+                    const EmptyState(
+                      icon: Icons.assignment_outlined,
+                      title: 'এখনও কোনো পরীক্ষা দেওয়া হয়নি',
+                      subtitle:
+                          'শিক্ষার্থী পরীক্ষা জমা দিলে ফলাফল এখানে দেখা যাবে',
+                    )
+                  else
+                    for (final result in results) ...[
+                      EduCard(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.assignment_turned_in_outlined,
+                              color: AppTheme.primaryColor,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    result.examTitle,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium,
+                                  ),
+                                  Text(
+                                    result.courseTitle,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall,
+                                  ),
+                                  Text(
+                                    '${result.correctAnswers}/${result.totalQuestions}টি সঠিক • ${result.completedAt == null ? '' : DateFormat('d MMM yyyy, h:mm a').format(result.completedAt!.toLocal())}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              _score(result.score),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(color: AppTheme.primaryColor),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                 ],
               ),
             );
-          }
-          final results = snapshot.data ?? [];
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(20),
-              children: [
-                EduCard(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.student.email,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${widget.student.enrolledCourses}টি কোর্স • ${results.length}টি পরীক্ষা দেওয়া হয়েছে',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        results.isEmpty
-                            ? 'গড় স্কোর: এখনও ফলাফল নেই'
-                            : 'গড় স্কোর: ${_score(results.map((item) => item.score).reduce((a, b) => a + b) / results.length)}',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'পরীক্ষার ফলাফল',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 12),
-                if (results.isEmpty)
-                  const EmptyState(
-                    icon: Icons.assignment_outlined,
-                    title: 'এখনও কোনো পরীক্ষা দেওয়া হয়নি',
-                    subtitle:
-                        'শিক্ষার্থী পরীক্ষা জমা দিলে ফলাফল এখানে দেখা যাবে',
-                  )
-                else
-                  for (final result in results) ...[
-                    EduCard(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.assignment_turned_in_outlined,
-                            color: AppTheme.primaryColor,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  result.examTitle,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium,
-                                ),
-                                Text(
-                                  result.courseTitle,
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                                Text(
-                                  '${result.correctAnswers}/${result.totalQuestions}টি সঠিক • ${result.completedAt == null ? '' : DateFormat('d MMM yyyy, h:mm a').format(result.completedAt!.toLocal())}',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            _score(result.score),
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(color: AppTheme.primaryColor),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-              ],
-            ),
-          );
-        },
+          },
+        ),
       ),
     );
   }

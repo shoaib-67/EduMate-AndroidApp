@@ -53,9 +53,80 @@ test('signup without email verification, mixed exam authoring and idempotent aut
     response = await request('/api/auth/login',signup);
     assert.equal(response.status,200);
     const studentToken = response.body.token;
+    const admin = await request('/api/auth/login',{email:'admin@edumate.com',password:'demo123'});
+    assert.equal(admin.status,200);
+    const adminToken = admin.body.token;
+    const createdCourse = await request('/api/admin/courses',
+      {title:'Package access course'},adminToken);
+    assert.equal(createdCourse.status,201,JSON.stringify(createdCourse.body));
+    const packageCourseId = createdCourse.body.id;
+    await db.query(
+      'INSERT INTO packages (title,price,features) VALUES (?,?,?)',
+      ['Legacy unlinked package','100 BDT',JSON.stringify([])],
+    );
+    assert.ok((await request('/api/packages',null,adminToken)).body.packages
+      .some((item) => item.title === 'Legacy unlinked package'));
+    assert.ok(!(await request('/api/packages',null,studentToken)).body.packages
+      .some((item) => item.title === 'Legacy unlinked package'));
+    assert.equal((await request('/api/admin/packages',
+      {course_id:999999,title:'Invalid',price:'1 BDT'},adminToken)).status,404);
+    const createdPackage = await request('/api/admin/packages',
+      {course_id:packageCourseId,title:'Course package',price:'499 BDT',
+        subtitle:'Demo access',features:['Lessons','Practice tests']},adminToken);
+    assert.equal(createdPackage.status,201,JSON.stringify(createdPackage.body));
+    const packageId = createdPackage.body.id;
+    const visiblePlan = (await request('/api/packages',null,studentToken)).body.packages
+      .find((item) => item.id === packageId);
+    assert.equal(visiblePlan.course_id,packageCourseId);
+    assert.equal(visiblePlan.course_title,'Package access course');
+    assert.equal(visiblePlan.has_access,false);
+    assert.equal((await request(`/api/student/packages/${packageId}/demo-purchase`,
+      {},adminToken)).status,403);
+    assert.ok(!(await request('/api/student/courses',null,studentToken)).body.courses
+      .some((item) => item.id === packageCourseId));
+    const purchase = await request(`/api/student/packages/${packageId}/demo-purchase`,
+      {},studentToken);
+    assert.equal(purchase.status,201,JSON.stringify(purchase.body));
+    assert.equal(purchase.body.purchase_type,'demo');
+    assert.ok((await request('/api/student/courses',null,studentToken)).body.courses
+      .some((item) => item.id === packageCourseId));
+    assert.equal((await request('/api/packages',null,studentToken)).body.packages
+      .find((item) => item.id === packageId).has_access,true);
+    assert.equal((await request(`/api/student/packages/${packageId}/demo-purchase`,
+      {},studentToken)).status,409);
+    const [[purchaseCount]] = await db.query(
+      'SELECT COUNT(*) AS n FROM package_purchases WHERE package_id = ? AND student_id = ?',
+      [packageId,studentId],
+    );
+    assert.equal(Number(purchaseCount.n),1);
+    const anotherCourse = await request('/api/admin/courses',
+      {title:'Another course'},adminToken);
+    assert.equal((await request(`/api/admin/packages/${packageId}`,
+      {course_id:anotherCourse.body.id,title:'Course package',price:'499 BDT'},
+      adminToken,'PUT')).status,409);
+    assert.equal((await request(`/api/admin/packages/${packageId}`,
+      null,adminToken,'DELETE')).status,200);
+    assert.ok((await request('/api/student/courses',null,studentToken)).body.courses
+      .some((item) => item.id === packageCourseId));
     const forgedSession = jwt.sign({id:studentId,role:'student'},secret);
     assert.equal((await request('/api/auth/me',null,forgedSession)).status,200);
     const teacher = await request('/api/auth/login',{email:'teacher@edumate.com',password:'demo123'});
+    assert.equal(teacher.status,200);
+    const teacherCourse = await request('/api/admin/courses',
+      {title:'Teacher assignment course'},adminToken);
+    assert.equal(teacherCourse.status,201);
+    const teacherCourseId = teacherCourse.body.id;
+    const beforeAssignment = await request('/api/instructor/courses',null,teacher.body.token);
+    assert.equal(beforeAssignment.status,200);
+    assert.ok(!beforeAssignment.body.courses.some((item) => item.id === teacherCourseId));
+    const assignment = await request(`/api/admin/courses/${teacherCourseId}`,
+      {title:'Teacher assignment course',instructor_id:teacher.body.user.id},
+      adminToken,'PUT');
+    assert.equal(assignment.status,200,JSON.stringify(assignment.body));
+    const afterAssignment = await request('/api/instructor/courses',null,teacher.body.token);
+    assert.ok(afterAssignment.body.courses.some((item) => item.id === teacherCourseId));
+    const teacherDashboard = await request('/api/instructor/dashboard',null,teacher.body.token);
+    assert.ok(teacherDashboard.body.total_courses >= 1);
     const [[discussion]] = await db.query(
       'SELECT id FROM discussions WHERE user_id = ? AND title = ?',
       [studentId,discussionTitle],

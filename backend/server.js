@@ -49,24 +49,30 @@ async function requireAuth(req, res, next) {
 
   try {
     req.auth = jwt.verify(token, jwtSecret);
-    // A valid JWT is not enough: an administrator may have permanently
-    // deleted this account after the token was issued.
-    const [rows] = await pool.query(
-      'SELECT id, role, is_frozen FROM users WHERE id = ? LIMIT 1',
-      [req.auth.id],
-    );
-    if (!rows[0]) return res.status(401).json({ message: 'Account not found' });
-    if (rows[0].is_frozen) return res.status(403).json({ message: 'Account is frozen' });
-    req.auth.role = rows[0].role;
-    next();
   } catch (_) {
     return res.status(401).json({ message: 'Invalid or expired token' });
   }
+  // Database failures must reach the server error handler, not look like a bad token.
+  const [rows] = await pool.query(
+    'SELECT id, role, is_frozen FROM users WHERE id = ? LIMIT 1',
+    [req.auth.id],
+  );
+  if (!rows[0]) return res.status(401).json({ message: 'Account not found' });
+  if (rows[0].is_frozen) return res.status(403).json({ message: 'Account is frozen' });
+  req.auth.role = rows[0].role;
+  next();
 }
 
 function requireAdmin(req, res, next) {
   if (req.auth?.role !== 'admin') {
     return res.status(403).json({ message: 'Admin access required' });
+  }
+  next();
+}
+
+function requireStudent(req, res, next) {
+  if (req.auth?.role !== 'student') {
+    return res.status(403).json({ message: 'Student access required' });
   }
   next();
 }
@@ -223,12 +229,43 @@ async function initializeDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS packages (
       id INT PRIMARY KEY AUTO_INCREMENT,
+      course_id INT NULL,
       title VARCHAR(180) NOT NULL,
       subtitle VARCHAR(255),
       price VARCHAR(50) NOT NULL,
       period VARCHAR(50),
       features JSON NOT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_packages_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+    )
+  `);
+  const [packageCourseColumn] = await pool.query("SHOW COLUMNS FROM packages LIKE 'course_id'");
+  if (packageCourseColumn.length === 0) {
+    await pool.query('ALTER TABLE packages ADD COLUMN course_id INT NULL AFTER id');
+  }
+  const [packageCourseKey] = await pool.query(`
+    SELECT 1 FROM information_schema.KEY_COLUMN_USAGE
+    WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'packages'
+      AND COLUMN_NAME = 'course_id' AND REFERENCED_TABLE_NAME = 'courses'
+  `, [databaseName]);
+  if (packageCourseKey.length === 0) {
+    await pool.query('ALTER TABLE packages ADD CONSTRAINT fk_packages_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE');
+  }
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS package_purchases (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      package_id INT NULL,
+      course_id INT NULL,
+      student_id INT NOT NULL,
+      package_title VARCHAR(180) NOT NULL,
+      course_title VARCHAR(180) NOT NULL,
+      price_snapshot VARCHAR(50) NOT NULL,
+      purchase_type ENUM('demo') NOT NULL DEFAULT 'demo',
+      purchased_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_package_purchase (student_id, package_id),
+      FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE SET NULL,
+      FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE SET NULL,
+      FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
   await pool.query(`
@@ -889,14 +926,74 @@ app.post('/api/student/report-bug', requireAuth, async (req, res) => {
   res.status(201).json({ message: 'Bug report submitted' });
 });
 
-app.get('/api/packages', requireAuth, async (_req, res) => {
+app.get('/api/packages', requireAuth, async (req, res) => {
   const [packages] = await pool.query(
-    'SELECT id, title, subtitle, price, period, features FROM packages ORDER BY id',
+    `SELECT p.id, p.course_id, c.title AS course_title, p.title, p.subtitle,
+      p.price, p.period, p.features, IF(e.student_id IS NULL, 0, 1) AS has_access
+     FROM packages p LEFT JOIN courses c ON c.id = p.course_id
+       LEFT JOIN course_enrollments e ON e.course_id = p.course_id AND e.student_id = ?
+     WHERE p.course_id IS NOT NULL OR ? = 'admin'
+     ORDER BY p.id DESC`,
+    [req.auth.id, req.auth.role],
   );
   res.json({ packages: packages.map((item) => ({
     ...item,
+    has_access: Boolean(item.has_access),
     features: typeof item.features === 'string' ? JSON.parse(item.features) : item.features,
   })) });
+});
+
+app.post('/api/student/packages/:id/demo-purchase', requireAuth, requireStudent, async (req, res) => {
+  const packageId = Number(req.params.id);
+  if (!Number.isInteger(packageId) || packageId <= 0) {
+    return res.status(400).json({ message: 'A valid package is required' });
+  }
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [[plan]] = await connection.query(
+      `SELECT p.id, p.course_id, p.title, p.price, c.title AS course_title
+       FROM packages p JOIN courses c ON c.id = p.course_id
+       WHERE p.id = ? FOR UPDATE`,
+      [packageId],
+    );
+    if (!plan) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Package not found' });
+    }
+    const [[enrollment]] = await connection.query(
+      'SELECT 1 FROM course_enrollments WHERE course_id = ? AND student_id = ?',
+      [plan.course_id, req.auth.id],
+    );
+    if (enrollment) {
+      await connection.rollback();
+      return res.status(409).json({ message: 'You already have access to this course' });
+    }
+    await connection.query(
+      `INSERT INTO package_purchases
+        (package_id, course_id, student_id, package_title, course_title, price_snapshot)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [plan.id, plan.course_id, req.auth.id, plan.title, plan.course_title, plan.price],
+    );
+    await connection.query(
+      'INSERT INTO course_enrollments (course_id, student_id) VALUES (?, ?)',
+      [plan.course_id, req.auth.id],
+    );
+    await connection.commit();
+    res.status(201).json({
+      message: 'Demo purchase complete. No payment was charged.',
+      course_id: plan.course_id,
+      purchase_type: 'demo',
+    });
+  } catch (error) {
+    await connection.rollback();
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ message: 'You already have access to this course' });
+    }
+    throw error;
+  } finally {
+    connection.release();
+  }
 });
 
 app.get('/api/student/courses/:id', requireAuth, async (req, res) => {
@@ -1564,29 +1661,74 @@ app.delete('/api/admin/content/:id', requireAuth, requireAdmin, async (req, res)
   res.json({ message: 'Content deleted' });
 });
 
-app.post('/api/admin/packages', requireAuth, requireAdmin, async (req, res) => {
-  const { title, subtitle, price, period, features = [] } = req.body || {};
-  if (!title || !price || !Array.isArray(features)) {
-    return res.status(400).json({ message: 'Title, price and features are required' });
+function validatePackage(body) {
+  const courseId = body?.course_id;
+  const title = typeof body?.title === 'string' ? body.title.trim() : '';
+  const subtitle = typeof body?.subtitle === 'string' ? body.subtitle.trim() : '';
+  const price = typeof body?.price === 'string' ? body.price.trim() : '';
+  const period = typeof body?.period === 'string' ? body.period.trim() : '';
+  const features = body?.features ?? [];
+  if (!Number.isInteger(courseId) || courseId <= 0 || !title || title.length > 180 ||
+      !price || price.length > 50 || subtitle.length > 255 || period.length > 50 ||
+      !Array.isArray(features) || features.length > 30 ||
+      features.some((item) => typeof item !== 'string' || item.trim().length > 255)) {
+    return null;
   }
+  return { courseId, title, subtitle, price, period,
+    features: features.map((item) => item.trim()).filter(Boolean) };
+}
+
+app.post('/api/admin/packages', requireAuth, requireAdmin, async (req, res) => {
+  const plan = validatePackage(req.body);
+  if (!plan) return res.status(400).json({ message: 'Valid course, title, price and features are required' });
+  const [[course]] = await pool.query('SELECT id FROM courses WHERE id = ?', [plan.courseId]);
+  if (!course) return res.status(404).json({ message: 'Course not found' });
   const [result] = await pool.query(
-    'INSERT INTO packages (title, subtitle, price, period, features) VALUES (?, ?, ?, ?, ?)',
-    [title, subtitle || null, price, period || null, JSON.stringify(features)],
+    'INSERT INTO packages (course_id, title, subtitle, price, period, features) VALUES (?, ?, ?, ?, ?, ?)',
+    [plan.courseId, plan.title, plan.subtitle || null, plan.price, plan.period || null,
+      JSON.stringify(plan.features)],
   );
   res.status(201).json({ message: 'Package created', id: result.insertId });
 });
 
 app.put('/api/admin/packages/:id', requireAuth, requireAdmin, async (req, res) => {
-  const { title, subtitle, price, period, features = [] } = req.body || {};
-  if (!title || !price || !Array.isArray(features)) {
-    return res.status(400).json({ message: 'Title, price and features are required' });
+  const plan = validatePackage(req.body);
+  if (!plan) return res.status(400).json({ message: 'Valid course, title, price and features are required' });
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [[existing]] = await connection.query('SELECT course_id FROM packages WHERE id = ? FOR UPDATE', [req.params.id]);
+    if (!existing) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Package not found' });
+    }
+    const [[course]] = await connection.query('SELECT id FROM courses WHERE id = ?', [plan.courseId]);
+    if (!course) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Course not found' });
+    }
+    if (existing.course_id != null && existing.course_id !== plan.courseId) {
+      const [[purchases]] = await connection.query(
+        'SELECT COUNT(*) AS count FROM package_purchases WHERE package_id = ?', [req.params.id],
+      );
+      if (Number(purchases.count) > 0) {
+        await connection.rollback();
+        return res.status(409).json({ message: 'A purchased package cannot be moved to another course' });
+      }
+    }
+    await connection.query(
+      'UPDATE packages SET course_id = ?, title = ?, subtitle = ?, price = ?, period = ?, features = ? WHERE id = ?',
+      [plan.courseId, plan.title, plan.subtitle || null, plan.price, plan.period || null,
+        JSON.stringify(plan.features), req.params.id],
+    );
+    await connection.commit();
+    res.json({ message: 'Package updated' });
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
   }
-  const [result] = await pool.query(
-    'UPDATE packages SET title = ?, subtitle = ?, price = ?, period = ?, features = ? WHERE id = ?',
-    [title, subtitle || null, price, period || null, JSON.stringify(features), req.params.id],
-  );
-  if (result.affectedRows === 0) return res.status(404).json({ message: 'Package not found' });
-  res.json({ message: 'Package updated' });
 });
 
 app.delete('/api/admin/packages/:id', requireAuth, requireAdmin, async (req, res) => {

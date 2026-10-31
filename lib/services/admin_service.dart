@@ -11,8 +11,11 @@ class AdminService {
 
   Future<Map<String, dynamic>?> getDashboard() async {
     final response = await _api.get(ApiConfig.adminDashboard);
-    if (response.success) return response.data as Map<String, dynamic>?;
-    return null;
+    if (!response.success) {
+      throw Exception(response.message ?? 'ড্যাশবোর্ডের তথ্য পাওয়া যায়নি');
+    }
+    if (response.data is! Map) throw Exception('Invalid dashboard response');
+    return Map<String, dynamic>.from(response.data as Map);
   }
 
   Future<List<User>> getUsers() async {
@@ -129,12 +132,13 @@ class AdminService {
 
   Future<List<PackagePlan>> getPackages() async {
     final response = await _api.get(ApiConfig.packages);
-    if (response.success && response.data is Map) {
-      return ((response.data['packages'] as List<dynamic>?) ?? [])
-          .map((p) => PackagePlan.fromJson(p))
-          .toList();
+    if (!response.success) {
+      throw Exception(response.message ?? 'Unable to load packages');
     }
-    return [];
+    if (response.data is! Map) throw Exception('Invalid packages response');
+    return ((response.data['packages'] as List<dynamic>?) ?? [])
+        .map((p) => PackagePlan.fromJson(Map<String, dynamic>.from(p as Map)))
+        .toList();
   }
 
   Future<ApiResponse> createPackage(Map<String, dynamic> data) =>

@@ -8,7 +8,6 @@ import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/profile_form.dart';
 import '../../widgets/dashboard_widgets.dart';
-import '../../utils/external_links.dart';
 import '../../widgets/role_bottom_navigation.dart';
 import 'admin_courses_screen.dart';
 
@@ -86,7 +85,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return Scaffold(
       body: SafeArea(
         child: _currentIndex == 0
-            ? _buildDashboard(auth, admin)
+            ? admin.dashboardError != null
+                  ? EmptyState(
+                      icon: Icons.cloud_off_rounded,
+                      title: 'ড্যাশবোর্ড লোড করা যায়নি',
+                      subtitle: admin.dashboardError!,
+                      actionText: 'আবার চেষ্টা করুন',
+                      onAction: admin.loadDashboard,
+                    )
+                  : _buildDashboard(auth, admin)
             : _currentIndex == 1
             ? _buildUsersTab(admin)
             : _currentIndex == 2
@@ -137,7 +144,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              mainAxisExtent: 152,
+              mainAxisExtent: StatCard.gridExtent(context),
               children: [
                 StatCard(
                   icon: Icons.people_rounded,
@@ -224,26 +231,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              IconButton(
-                onPressed: () => setState(() => _currentIndex = 0),
-                icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                tooltip: 'আগের পেজে ফিরুন',
-              ),
-              Text(
-                'ব্যবহারকারী',
-                style: Theme.of(context).textTheme.headlineLarge,
-              ),
-              const Spacer(),
-              IconButton(
-                onPressed: () => _showCreateUserDialog(admin),
-                icon: const Icon(Icons.person_add_alt_1_rounded),
-                tooltip: 'নতুন ব্যবহারকারী যোগ করুন',
-              ),
-            ],
+        RolePageHeader(
+          title: 'ব্যবহারকারী',
+          onBack: () => setState(() => _currentIndex = 0),
+          action: IconButton(
+            onPressed: () => _showCreateUserDialog(admin),
+            icon: const Icon(Icons.person_add_alt_1_rounded),
+            tooltip: 'নতুন ব্যবহারকারী যোগ করুন',
           ),
         ),
         Expanded(
@@ -496,30 +490,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildUsersErrorState(AdminProvider admin) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.cloud_off_rounded,
-              size: 48,
-              color: AppTheme.accentOrange,
-            ),
-            const SizedBox(height: 12),
-            const Text('ব্যবহারকারীদের তথ্য লোড করা যায়নি'),
-            const SizedBox(height: 8),
-            Text(admin.usersError!, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: admin.isUsersLoading ? null : () => admin.loadUsers(),
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('আবার চেষ্টা করুন'),
-            ),
-          ],
-        ),
-      ),
+    return EmptyState(
+      icon: Icons.cloud_off_rounded,
+      title: 'ব্যবহারকারীদের তথ্য লোড করা যায়নি',
+      subtitle: admin.usersError!,
+      actionText: 'আবার চেষ্টা করুন',
+      onAction: admin.isUsersLoading ? null : admin.loadUsers,
     );
   }
 
@@ -953,18 +929,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                IconButton(
-                  onPressed: () => setState(() => _currentIndex = 1),
-                  icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                  tooltip: 'আগের পেজে ফিরুন',
-                ),
-                Text(
-                  'রিপোর্ট ও বিশ্লেষণ',
-                  style: Theme.of(context).textTheme.headlineLarge,
-                ),
-              ],
+            RolePageHeader(
+              title: 'রিপোর্ট ও বিশ্লেষণ',
+              onBack: () => setState(() => _currentIndex = 1),
+              padding: EdgeInsets.zero,
             ),
             const SizedBox(height: 20),
             admin.isReportsLoading || !admin.reportsLoaded
@@ -985,11 +953,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                   color: AppTheme.accentTeal,
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  'মোট রেজিস্ট্রেশন',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium,
+                                Expanded(
+                                  child: Text(
+                                    'মোট রেজিস্ট্রেশন',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium,
+                                  ),
                                 ),
                               ],
                             ),
@@ -1015,11 +985,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                   color: AppTheme.primaryColor,
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  'মোট টেস্ট সম্পন্ন',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium,
+                                Expanded(
+                                  child: Text(
+                                    'মোট টেস্ট সম্পন্ন',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium,
+                                  ),
                                 ),
                               ],
                             ),
@@ -1046,11 +1018,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                   color: AppTheme.accentOrange,
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  'বাগ রিপোর্ট',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium,
+                                Expanded(
+                                  child: Text(
+                                    'বাগ রিপোর্ট',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium,
+                                  ),
                                 ),
                               ],
                             ),
@@ -1102,29 +1076,24 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'প্যাকেজ ম্যানেজমেন্ট',
-                  style: Theme.of(context).textTheme.headlineLarge,
-                ),
-              ),
-              IconButton(
-                onPressed: () => _showPackageDialog(admin),
-                icon: const Icon(
-                  Icons.add_box_rounded,
-                  color: AppTheme.primaryColor,
-                  size: 28,
-                ),
-              ),
-            ],
+        RolePageHeader(
+          title: 'প্যাকেজ ম্যানেজমেন্ট',
+          onBack: () => setState(() => _currentIndex = 0),
+          action: IconButton(
+            onPressed: () => _showPackageDialog(admin),
+            icon: const Icon(Icons.add_box_rounded),
+            tooltip: 'নতুন প্যাকেজ যোগ করুন',
           ),
         ),
         Expanded(
-          child: admin.packages.isEmpty
+          child: admin.packageError != null && admin.packages.isEmpty
+              ? EmptyState(
+                  icon: Icons.error_outline,
+                  title: admin.packageError!,
+                  actionText: 'Retry',
+                  onAction: admin.loadPackages,
+                )
+              : admin.packages.isEmpty
               ? const EmptyState(
                   icon: Icons.inventory_2_outlined,
                   title: 'কোনো প্যাকেজ নেই',
@@ -1173,6 +1142,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                         .bodyMedium,
                                   ),
                                   Text(
+                                    plan.courseTitle.isEmpty
+                                        ? 'No course linked yet'
+                                        : 'Course: ${plan.courseTitle}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall,
+                                  ),
+                                  Text(
                                     '${plan.features.length}টি সুবিধা',
                                     style: Theme.of(context)
                                         .textTheme
@@ -1206,6 +1183,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
     AdminProvider admin, [
     dynamic existing,
   ]) async {
+    await admin.loadCourses();
+    if (!mounted) return;
+    if (admin.courses.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Create a course before adding a package.'),
+        ),
+      );
+      return;
+    }
+    int? selectedCourseId = existing?.courseId as int?;
     final title = TextEditingController(text: existing?.title ?? '');
     final subtitle = TextEditingController(text: existing?.subtitle ?? '');
     final price = TextEditingController(text: existing?.price ?? '');
@@ -1221,6 +1209,24 @@ class _AdminDashboardState extends State<AdminDashboard> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              DropdownButtonFormField<int>(
+                initialValue: selectedCourseId,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Course'),
+                items: admin.courses
+                    .where((course) => course.id != null)
+                    .map(
+                      (course) => DropdownMenuItem<int>(
+                        value: course.id!,
+                        child: Text(
+                          course.title,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => selectedCourseId = value,
+              ),
               TextField(
                 controller: title,
                 decoration: const InputDecoration(labelText: 'প্যাকেজের নাম'),
@@ -1253,10 +1259,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           FilledButton(
             onPressed: () async {
-              if (title.text.trim().isEmpty || price.text.trim().isEmpty) {
+              if (selectedCourseId == null ||
+                  title.text.trim().isEmpty ||
+                  price.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Select a course and enter a title and price.',
+                    ),
+                  ),
+                );
                 return;
               }
               final data = {
+                'course_id': selectedCourseId,
                 'title': title.text.trim(),
                 'subtitle': subtitle.text.trim(),
                 'price': price.text.trim(),
@@ -1270,7 +1286,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
               final saved = existing == null
                   ? await admin.createPackage(data)
                   : await admin.updatePackage(existing.id, data);
-              if (ctx.mounted) Navigator.pop(ctx, saved);
+              if (saved && ctx.mounted) {
+                Navigator.pop(ctx, true);
+              } else if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      admin.packageError ?? 'Unable to save package',
+                    ),
+                  ),
+                );
+              }
             },
             child: const Text('সংরক্ষণ'),
           ),
@@ -1291,66 +1317,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          Row(
-            children: [
-              IconButton(
-                onPressed: () => setState(() => _currentIndex = 4),
-                icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                tooltip: 'আগের পেজে ফিরুন',
-              ),
-              Text('সেটিংস', style: Theme.of(context).textTheme.headlineLarge),
-              const Spacer(),
-              TextButton(
-                onPressed: () {
-                  openGreenEarthWebsite();
-                },
-                child: const Text('আমাদের সম্পর্কে'),
-              ),
-            ],
+          RolePageHeader(
+            title: 'সেটিংস',
+            onBack: () => setState(() => _currentIndex = 4),
+            showAboutUs: true,
+            padding: EdgeInsets.zero,
           ),
           const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [AppTheme.accentOrange, Color(0xFFFF6B42)],
-              ),
-            ),
-            child: Text(
-              (auth.user?.name ?? 'A').substring(0, 1).toUpperCase(),
-              style: const TextStyle(
-                fontSize: 36,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            auth.user?.name ?? '',
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            auth.user?.email ?? '',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.accentOrange.withAlpha(25),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Text(
-              'অ্যাডমিন',
-              style: TextStyle(
-                color: AppTheme.accentOrange,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+          ProfileIdentity(
+            name: auth.user?.name ?? '',
+            email: auth.user?.email ?? '',
+            roleLabel: 'অ্যাডমিন',
+            roleColor: AppTheme.accentOrange,
           ),
           const SizedBox(height: 32),
           ProfileForm(

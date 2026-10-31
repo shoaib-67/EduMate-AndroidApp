@@ -11,21 +11,22 @@ class InstructorService {
 
   Future<Map<String, dynamic>?> getDashboard() async {
     final response = await _api.get(ApiConfig.instructorDashboard);
-    if (response.success) return response.data as Map<String, dynamic>?;
-    return null;
+    if (!response.success) {
+      throw Exception(response.message ?? 'ড্যাশবোর্ডের তথ্য পাওয়া যায়নি');
+    }
+    if (response.data is! Map) throw Exception('Invalid dashboard response');
+    return Map<String, dynamic>.from(response.data as Map);
   }
 
   Future<List<Course>> getCourses() async {
     final response = await _api.get(ApiConfig.instructorCourses);
-    if (response.success && response.data != null) {
-      final list = response.data is Map
-          ? (response.data['courses'] as List<dynamic>? ?? [])
-          : (response.data as List<dynamic>);
-      return list
-          .map((c) => Course.fromJson(c as Map<String, dynamic>))
-          .toList();
+    if (!response.success) {
+      throw Exception(response.message ?? 'Unable to load assigned courses');
     }
-    return [];
+    if (response.data is! Map) throw Exception('Invalid courses response');
+    return ((response.data['courses'] as List<dynamic>?) ?? [])
+        .map((item) => Course.fromJson(Map<String, dynamic>.from(item as Map)))
+        .toList();
   }
 
   Future<List<CourseContent>> getCourseContent(int courseId) async {

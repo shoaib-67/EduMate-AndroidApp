@@ -32,7 +32,9 @@ class _StudentCourseDetailsScreenState
   @override
   void initState() {
     super.initState();
-    _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _load();
+    });
   }
 
   Future<void> _load() async {
@@ -293,66 +295,82 @@ class _StudentCourseDetailsScreenState
               length: 5,
               child: Padding(
                 padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.course.description ?? '',
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                    const SizedBox(height: 12),
-                    if (_myRating == null)
-                      Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 8,
-                        children: [
-                          Text(
-                            _rating == null
-                                ? 'এখনও কোনো রেটিং নেই'
-                                : 'রেটিং ${_rating!.toStringAsFixed(1)}/5 ($_ratingCount)',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                          for (var star = 1; star <= 5; star++)
-                            IconButton(
-                              tooltip: '$star তারকা রেটিং দিন',
-                              visualDensity: VisualDensity.compact,
-                              onPressed: _ratingSaving
-                                  ? null
-                                  : () => _rateCourse(star),
-                              icon: Icon(
-                                Icons.star_outline_rounded,
-                                color: Colors.amber.shade700,
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: constraints.maxHeight * .4,
+                        ),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.course.description ?? '',
+                                style: Theme.of(context).textTheme.bodyLarge,
                               ),
-                            ),
-                        ],
-                      ),
-                    const SizedBox(height: 20),
-                    const TabBar(
-                      isScrollable: true,
-                      tabs: [
-                        Tab(text: 'PDF / নোট'),
-                        Tab(text: 'ভিডিও'),
-                        Tab(text: 'লাইভ ক্লাস'),
-                        Tab(text: 'আলোচনা'),
-                        Tab(text: 'পরীক্ষা'),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: TabBarView(
-                        children: [
-                          _contentList('pdf'),
-                          _contentList('video'),
-                          _contentList('live'),
-                          DiscussionScreen(
-                            courseId: widget.course.id!,
-                            embedded: true,
+                              const SizedBox(height: 12),
+                              if (_myRating == null)
+                                Wrap(
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  spacing: 8,
+                                  children: [
+                                    Text(
+                                      _rating == null
+                                          ? 'এখনও কোনো রেটিং নেই'
+                                          : 'রেটিং ${_rating!.toStringAsFixed(1)}/5 ($_ratingCount)',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium,
+                                    ),
+                                    for (var star = 1; star <= 5; star++)
+                                      IconButton(
+                                        tooltip: '$star তারকা রেটিং দিন',
+                                        visualDensity: VisualDensity.compact,
+                                        onPressed: _ratingSaving
+                                            ? null
+                                            : () => _rateCourse(star),
+                                        icon: Icon(
+                                          Icons.star_outline_rounded,
+                                          color: Colors.amber.shade700,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              const SizedBox(height: 20),
+                            ],
                           ),
-                          _examList(),
+                        ),
+                      ),
+                      const TabBar(
+                        isScrollable: true,
+                        tabs: [
+                          Tab(text: 'PDF / নোট'),
+                          Tab(text: 'ভিডিও'),
+                          Tab(text: 'লাইভ ক্লাস'),
+                          Tab(text: 'আলোচনা'),
+                          Tab(text: 'পরীক্ষা'),
                         ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            _contentList('pdf'),
+                            _contentList('video'),
+                            _contentList('live'),
+                            DiscussionScreen(
+                              courseId: widget.course.id!,
+                              embedded: true,
+                            ),
+                            _examList(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
